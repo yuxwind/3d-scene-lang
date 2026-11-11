@@ -52,7 +52,7 @@ scripts/eval.sh main $SR_OUTPUT_ROOT/sr_vggt_main/checkpoint-743
 ```
 
 `<experiment>` is any `configs/<name>.env`: `main lora128 text256 4b lat3072 vggt1b spatialstack
-vlm3r reason16k`. `reason16k` extends the text256 ablation and starts from
+vlm3r reason16k novggt`. `novggt` is the no-geometry baseline (plain Qwen3-VL-2B + LoRA, `--arch none`). `reason16k` extends the text256 ablation and starts from
 `sr_vggt_text256/checkpoint-743`, so train `text256` first. To start from another checkpoint,
 set `INIT_CKPT=<dir>`.
 

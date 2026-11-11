@@ -8,10 +8,18 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 activate_env h100
 python - <<'PY'
+from pathlib import Path
+
 from huggingface_hub import hf_hub_download, snapshot_download
 
 for repo in ("Qwen/Qwen3-VL-2B-Instruct", "Qwen/Qwen3-VL-4B-Instruct"):
     print(repo, "->", snapshot_download(repo), flush=True)
+# Qwen3.5-4B pinned; offline loads by repo name need refs/main, which a pinned download skips.
+q35 = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+path = snapshot_download("Qwen/Qwen3.5-4B", revision=q35)
+(Path(path).parents[1] / "refs").mkdir(exist_ok=True)
+(Path(path).parents[1] / "refs" / "main").write_text(q35)
+print("Qwen/Qwen3.5-4B ->", path, flush=True)
 # Revisions pinned to the snapshots the reference runs used (also in configs/*.env).
 omega = "05654241adc2f218dfb089c373a011f8a7040576"
 for f in ("vggt_omega_1b_512.pt", "vggt_omega_1b_256_text.pt"):

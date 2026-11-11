@@ -90,6 +90,8 @@ def vggt_input(vggt_frames: str, frames, qwen_video: torch.Tensor, resolution: i
 
 _SHORT_SYSTEM = ("You are a spatial reasoning assistant. You are shown 3D scene context and the "
                  "RGB frames of a scene. Answer the question about the scene.")
+_SCENE_SYSTEM = ("You are a spatial reasoning assistant. You are shown 3D scene context. "
+                 "Answer the question about the scene.")  # rows without a video (data/reason190k_scene)
 _TEXT256_SYSTEM = ("You are a spatial reasoning assistant. You are given three inputs about one "
                    "indoor scene: (1) per-frame geometry features, compressed from a 3D "
                    "reconstruction model's patch tokens of every video frame; (2) camera and scene "
@@ -102,13 +104,23 @@ _TEXT256_SYSTEM = ("You are a spatial reasoning assistant. You are given three i
 #   text256  named placeholder blocks (text256, 4b, lat3072, vggt1b)
 #   plain    no placeholders (spatialstack, vlm3r: geometry enters through the video tokens)
 #   reason   text256 + reasoning-format instructions (reasoning.py)
-PROMPTS = ("text256", "clean", "plain", "reason")
+#   reason_plain  no placeholders, video-only reasoning instructions, thinking on (Qwen3.5: scene +
+#            reasoning inside its native <think> block; data/reason190k_think/build.py)
+PROMPTS = ("text256", "clean", "plain", "reason", "reason_plain")
+
+
+def thinking(prompt: str) -> bool:
+    """enable_thinking for the chat template (Qwen3.5; Qwen3-VL ignores it)."""
+    return prompt == "reason_plain"
 
 
 def system_prompt(prompt: str) -> str:
     if prompt == "reason":
         from .reasoning import SYSTEM_PROMPT
         return SYSTEM_PROMPT
+    if prompt == "reason_plain":
+        from .reasoning import PLAIN_SYSTEM_PROMPT
+        return PLAIN_SYSTEM_PROMPT
     return _TEXT256_SYSTEM if prompt == "text256" else _SHORT_SYSTEM
 
 
@@ -135,9 +147,10 @@ def video_path(example, data_root=None) -> str:
 
 def task_messages(example, frames, prompt: str, frame_placeholder_text: str,
                   camera_placeholder_text: str, target_text: str, prompt_only: bool = False):
-    """System + user (+ assistant unless prompt_only)."""
-    video = {"type": "video", "video": frames,
-             "min_pixels": LLM_MIN_PIXELS, "max_pixels": LLM_MAX_PIXELS}
+    """System + user (+ assistant unless prompt_only). ``frames`` None: a text-only row (no video item,
+    _SCENE_SYSTEM)."""
+    video = [] if frames is None else [{"type": "video", "video": frames,
+                                        "min_pixels": LLM_MIN_PIXELS, "max_pixels": LLM_MAX_PIXELS}]
     if prompt in ("text256", "reason"):
         head = [{"type": "text", "text": "Per-frame geometry features: " + frame_placeholder_text
                  + "\nCamera and scene features: " + camera_placeholder_text + "\n"}]
@@ -146,11 +159,14 @@ def task_messages(example, frames, prompt: str, frame_placeholder_text: str,
                 {"type": "text", "text": "This is the 3D scene context.\n"}]
     elif prompt == "plain":
         head = [{"type": "text", "text": "This is the 3D scene context.\n"}]
+    elif prompt == "reason_plain":
+        head = []  # the human turn's own "These are frames of a video." introduces the video
     else:
         raise ValueError(f"unknown prompt {prompt!r}; one of {PROMPTS}")
-    user = head + [video, {"type": "text", "text": example["conversations"][0]["value"]}]
+    user = head + video + [{"type": "text", "text": example["conversations"][0]["value"]}]
+    system = _SCENE_SYSTEM if frames is None and prompt == "plain" else system_prompt(prompt)
     messages = [
-        {"role": "system", "content": [{"type": "text", "text": system_prompt(prompt)}]},
+        {"role": "system", "content": [{"type": "text", "text": system}]},
         {"role": "user", "content": user},
     ]
     if not prompt_only:
@@ -166,7 +182,8 @@ def clip_inputs(va, messages, frames):
     if not vision:
         raise ValueError("process_vision_info returned no video.")
     videos, metadata = map(list, zip(*vision))
-    raw = vggt_input(va.vggt_frames, frames, videos[0], va.vggt_image_resolution, va.vggt_backbone)
+    raw = (None if va.arch == "none"
+           else vggt_input(va.vggt_frames, frames, videos[0], va.vggt_image_resolution, va.vggt_backbone))
     return videos, metadata, video_kwargs, raw
 
 
@@ -183,13 +200,23 @@ def make_collator(processor, data_root, va) -> Callable[[List[Dict[str, Any]]], 
         full_texts, raw_videos, llm_videos, llm_metadata, spans = [], [], [], [], []
         merged_video_kwargs: Dict[str, Any] = {}
         for example in examples:
-            frames = decode_video_frames(video_path(example, data_root), va.video_fps, va.video_max_frames)
+            # A row without a video (data/reason190k_scene) is a text-only turn.
+            frames = (decode_video_frames(video_path(example, data_root), va.video_fps, va.video_max_frames)
+                      if example.get("video") else None)
             messages = task_messages(example, frames, va.prompt, frame_ph, camera_ph,
                                      example["conversations"][1]["value"])
-            t1 = processor.apply_chat_template(messages[:-1], tokenize=False, add_generation_prompt=True)
-            t2 = processor.apply_chat_template(messages, tokenize=False)
+            # enable_thinking=False: Qwen3.5 then puts its empty <think></think> in the prompt, not
+            # in the supervised span (as at eval); Qwen3-VL's template ignores the flag. reason_plain
+            # thinks: the prompt ends in "<think>\n" and the span starts with the reasoning.
+            think = thinking(va.prompt)
+            t1 = processor.apply_chat_template(messages[:-1], tokenize=False, add_generation_prompt=True,
+                                               enable_thinking=think)
+            t2 = processor.apply_chat_template(messages, tokenize=False, enable_thinking=think)
+            assert t2.startswith(t1), "chat template: prompt is not a prefix of the full text"
             spans.append((_unexpanded_len(t1), _unexpanded_len(t2)))
             full_texts.append(t2)
+            if frames is None:
+                continue
             videos, metadata, video_kwargs, raw = clip_inputs(va, messages, frames)
             llm_videos.extend(videos)
             llm_metadata.extend(metadata)
@@ -197,7 +224,7 @@ def make_collator(processor, data_root, va) -> Callable[[List[Dict[str, Any]]], 
             for key, value in video_kwargs.items():
                 merged_video_kwargs.setdefault(key, value)
 
-        batch = processor(text=full_texts, videos=llm_videos, video_metadata=llm_metadata,
+        batch = processor(text=full_texts, videos=llm_videos or None, video_metadata=llm_metadata or None,
                           return_tensors="pt", padding=True, **merged_video_kwargs)
         input_ids = batch["input_ids"]
         attention_mask = batch["attention_mask"]
@@ -217,7 +244,8 @@ def make_collator(processor, data_root, va) -> Callable[[List[Dict[str, Any]]], 
             labels[input_ids == pad_token_id] = IGNORE_INDEX
         labels[attention_mask == 0] = IGNORE_INDEX
         batch["labels"] = labels
-        batch["raw_videos"] = raw_videos
+        if va.arch != "none":
+            batch["raw_videos"] = raw_videos
         return batch
 
     return collate_fn

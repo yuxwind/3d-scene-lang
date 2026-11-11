@@ -25,6 +25,7 @@ original scores came from V100 fp32 evals.
 | `text256` | idea_3i_190k_es_64f_lat512_text256 | main | text-aligned VGGT-Omega checkpoint (`vggt_omega_1b_256_text.pt`) + descriptive prompt (2 changes) | Omega text256, balanced 256 | 0.6060 @743 |
 | `spatialstack` | idea_3i_190k_es_64f_spatialstack | main | SpatialStack layered fusion instead of the Perceiver; layers 11/17/23 on Qwen's own pixels; plain prompt (no placeholders) | Omega 512, Qwen pixels, layers 11/17/23 | **0.6208** @743 (best 2B) |
 | `vlm3r` | idea_3i_190k_es_64f_vlm3r | main | VLM-3R cross-attention of video tokens to VGGT tokens instead of the Perceiver; plain prompt (no placeholders) | Omega 512, balanced 256 | 0.6013 @743 |
+| `novggt` | (new, not in finetuning/) | main | no VGGT branch (`--arch none`): LoRA on plain Qwen3-VL-2B; plain prompt (no placeholders) | none | zero-shot 0.5088 before training (docs/reproduce_exps.md) |
 | `vggt1b` | idea_3i_190k_es_64f_lat512_vggt1b | main | original VGGT-1B backbone (patch 14, 5 camera tokens) + descriptive text256 prompt (2 changes; the fork was copied from text256) | VGGT-1B, balanced 256 | not evaluated (trained to 743) |
 | *ablations of text256* | | | | | |
 | `4b` | idea_3i_190k_es_64f_lat512_text256_4b | **text256** | Qwen3-VL-4B-Instruct | Omega text256, balanced 256 | **0.6784** @743 |

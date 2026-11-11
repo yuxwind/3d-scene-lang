@@ -46,12 +46,15 @@ load_config() {
   EXP=$1
   local f="${SR_ROOT}/configs/${EXP}.env"
   [[ -f "${f}" ]] || { echo "ERROR: no config ${f} (have: $(ls "${SR_ROOT}/configs" | sed 's/.env$//' | tr '\n' ' '))" >&2; exit 1; }
-  EVAL_PARTS=1; INIT_FROM=""
+  EVAL_PARTS=1; INIT_FROM=""; GRAD_CKPT=False
   source "${f}"
   RUN_NAME="sr_vggt_${EXP}"
   case "${MIX}" in
     190k) MIX_JSONL="${SR_ROOT}/data/vqa_train_190k_es_clean.jsonl.gz" ;;
     traces) MIX_JSONL="${SR_ROOT}/data/simplesr_train_traces.jsonl.gz" ;;
+    reason190k_vs) MIX_JSONL="${SR_ROOT}/data/reason190k_videoscene_answer.jsonl.gz" ;;  # data/reason190k_videoscene/build.py
+    reason190k_think) MIX_JSONL="${SR_ROOT}/data/reason190k_think_answer.jsonl.gz" ;;  # data/reason190k_think/build.py
+    reason190k_scene) MIX_JSONL="${SR_ROOT}/data/reason190k_scene_answer.jsonl.gz" ;;  # data/reason190k_scene/build.py
     *) echo "ERROR: unknown MIX=${MIX}" >&2; exit 1 ;;
   esac
 }

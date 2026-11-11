@@ -8,11 +8,14 @@ source "${SR_ROOT}/scripts/lib.sh"
 load_config "$1"
 OUT=$2
 shift 2
-activate_env h100
+# The venv of this node's GPU kind (A100 nodes need the a100 module tree and venv).
+GPU_KIND=h100
+nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | grep -q A100 && GPU_KIND=a100
+activate_env "${GPU_KIND}"
 offline
 # Allocated GPUs, not node GPUs: some clusters (willow) show every node GPU to nvidia-smi.
 NGPU=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
-echo "=== ${SLURM_JOB_ID} | ${EXP} | ${NGPU} GPUs | $(hostname) | out ${OUT} ==="
+echo "=== ${SLURM_JOB_ID} | ${EXP} | ${NGPU} GPUs (${GPU_KIND}) | $(hostname) | out ${OUT} ==="
 nvidia-smi topo -m || true   # SYS between the GPUs hangs DDP: resubmit with NCCL_P2P_DISABLE=1
 
 args=(
@@ -22,7 +25,7 @@ args=(
   --data_root "${SR_VSI590K}"
   --attn_implementation sdpa          # torch 2.13 SDPA beats flash-attn by 11% on H100
   --bf16 True
-  --gradient_checkpointing False      # 17% faster; flip to True on OOM
+  --gradient_checkpointing ${GRAD_CKPT:-False}   # 17% faster off; a config sets GRAD_CKPT=True (+ --checkpoint_above) on OOM
   --per_device_train_batch_size 1
   --gradient_accumulation_steps $((256 / NGPU))
   --use_liger_kernel True             # fused CE (model.py); TRL needs the flag too

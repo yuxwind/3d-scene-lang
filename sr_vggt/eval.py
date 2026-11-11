@@ -30,7 +30,7 @@ import torch
 from tqdm import tqdm
 from transformers import AutoProcessor, HfArgumentParser
 
-from .data import clip_inputs, decode_video_frames, task_messages
+from .data import clip_inputs, decode_video_frames, task_messages, thinking
 from .model import VggtArguments, initialize_vggt_modules, model_class
 
 SPLIT = "full"
@@ -94,7 +94,7 @@ def score(rows) -> Dict[str, float]:
 def load_model(ea: EvalArguments, va: VggtArguments, processor, dtype):
     from peft import PeftModel
 
-    model = model_class(va).from_pretrained(
+    model = model_class(va, ea.model_name_or_path).from_pretrained(
         ea.model_name_or_path, dtype=dtype, attn_implementation=ea.attn_implementation).to(ea.device)
     initialize_vggt_modules(model, va, processor.tokenizer)  # before PEFT, so the adapter lands
     model = PeftModel.from_pretrained(model, ea.adapter_path).to(ea.device)
@@ -105,7 +105,7 @@ def load_model(ea: EvalArguments, va: VggtArguments, processor, dtype):
 def main() -> None:
     ea, va = HfArgumentParser((EvalArguments, VggtArguments)).parse_args_into_dataclasses()
     dtype = {"bf16": torch.bfloat16, "fp32": torch.float32}[ea.dtype]
-    reasoning = va.prompt == "reason"
+    reasoning = va.prompt in ("reason", "reason_plain")
     if reasoning:
         from .reasoning import parse_answer
     frame_ph, camera_ph = va.placeholder_texts()
@@ -144,14 +144,20 @@ def main() -> None:
                         "frames": decode_video_frames(ex["video"], va.video_fps, va.video_max_frames)}
             messages = task_messages(ex, memo["frames"], va.prompt, frame_ph, camera_ph,
                                      target_text="", prompt_only=True)
-            prompt = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            prompt = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True,
+                                                   enable_thinking=thinking(va.prompt))
             videos, video_metadata, video_kwargs, raw = clip_inputs(va, messages, memo["frames"])
             inputs = processor(text=prompt, videos=videos, video_metadata=video_metadata,
                                return_tensors="pt", padding=True, **video_kwargs)
             inputs = {k: v.to(ea.device) if isinstance(v, torch.Tensor) else v for k, v in inputs.items()}
-            inputs["raw_videos"] = [raw]
+            if raw is not None:  # --arch none: no VGGT input
+                inputs["raw_videos"] = [raw]
 
-            out = model.generate(**inputs, max_new_tokens=ea.max_new_tokens, do_sample=False)
+            # Stop at the end of the turn: Qwen3.5 ships no generation_config.json and its config.json
+            # stops on <|endoftext|> only, so a fine-tuned model would run on past its <|im_end|>.
+            out = model.generate(**inputs, max_new_tokens=ea.max_new_tokens, do_sample=False,
+                                 eos_token_id=[processor.tokenizer.convert_tokens_to_ids(t)
+                                               for t in ("<|im_end|>", "<|endoftext|>")])
             gen_ids = out[0, inputs["input_ids"].shape[1]:]
             row = {"index": idx, "question_type": ex["question_type"], "ground_truth": str(ex["ground_truth"])}
             if reasoning:

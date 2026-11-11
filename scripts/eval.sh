@@ -4,7 +4,7 @@
 # login-node watcher; the score lands in <eval dir>/results_full_merged.json and the log.
 #
 #   scripts/eval.sh <experiment> <checkpoint dir>       e.g. main $SR_OUTPUT_ROOT/sr_vggt_main/checkpoint-743
-# Env overrides: EVAL_DIR (<ckpt>/../eval_<ckpt name>_full), NUM_SHARDS (8), QOS (qos_gpu_a100-dev),
+# Env overrides: EVAL_DIR (<ckpt>/../eval_<ckpt name>_full), NUM_SHARDS (8), GPU (a100 or h100), QOS (qos_gpu_<GPU>-dev),
 # TIME (02:00:00), MAX_ROUNDS (6). Configs with EVAL_PARTS > 1 (reason16k) split a timed-out
 # shard's leftover rows over that many extra jobs instead of rerunning the shard alone.
 set -euo pipefail
@@ -16,7 +16,8 @@ load_config "${1:?usage: scripts/eval.sh <experiment> <checkpoint dir>}"
 CKPT=$(realpath "${2:?checkpoint dir}")
 EVAL_DIR=${EVAL_DIR:-$(dirname "${CKPT}")/eval_$(basename "${CKPT}")_full}
 NUM_SHARDS=${NUM_SHARDS:-8}
-QOS=${QOS:-qos_gpu_a100-dev}
+GPU=${GPU:-a100}
+QOS=${QOS:-qos_gpu_${GPU}-dev}
 TIME=${TIME:-02:00:00}
 MAX_ROUNDS=${MAX_ROUNDS:-6}
 JOB_NAME=eval_${RUN_NAME}_$(basename "${CKPT}")
@@ -31,9 +32,9 @@ if (( ! WATCH )); then
 fi
 
 submit() {  # <array spec> [parts index] -> job id
-  sbatch --parsable --job-name="${JOB_NAME}" --account="${SR_PROJECT}@a100" -C a100 --qos="${QOS}" \
+  sbatch --parsable --job-name="${JOB_NAME}" --account="${SR_PROJECT}@${GPU}" -C "${GPU}" --qos="${QOS}" \
     --array="$1" --nodes=1 --ntasks=1 --gres=gpu:1 --cpus-per-task=8 --hint=nomultithread \
-    --time="${TIME}" --output="${SR_LOG_DIR}/%x-%A_%a.out" --export=ALL,SR_ROOT="${SR_ROOT}" \
+    --time="${TIME}" --output="${SR_LOG_DIR}/%x-%A_%a.out" --export=ALL,SR_ROOT="${SR_ROOT}",GPU="${GPU}" \
     "${SR_ROOT}/scripts/jobs/eval.slurm" "${EXP}" "${CKPT}" "${EVAL_DIR}" "${NUM_SHARDS}" "${@:2}"
 }
 shard_done() {  # a shard is done when its own results file, or all its parts' files, exist

@@ -36,6 +36,7 @@ pkgs=(
   "fairscale==0.4.13"            # vendored perceiver-io imports checkpoint_wrapper from it
   "mistral_common>=1.8.8"        # the modules' copy is too old for transformers 5.2
   "liger-kernel==0.8.2"          # fused CE (needs the module's Triton)
+  "flash-linear-attention==0.5.2" "fla-core==0.5.2"   # Qwen3.5 Gated-DeltaNet kernels (novggt_qwen35_4b)
   "einops" "safetensors" "pandas"
 )
 python -m pip install --no-cache-dir "${pkgs[@]}"

@@ -5,6 +5,7 @@
 
 scripts/train.sh builds this command from an experiment config.
 Trainable: the VGGT fusion module (``vggt_projector``) + LoRA on the LLM; VGGT itself is frozen.
+With ``--arch none`` (configs/novggt*.env) there is no VGGT branch: LoRA on plain Qwen3-VL / Qwen3.5.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ import torch.distributed as dist
 from datasets import Dataset
 from peft import LoraConfig
 from transformers import AutoProcessor, HfArgumentParser, TrainerCallback
+from transformers.modeling_layers import GradientCheckpointingLayer
 from transformers.trainer_utils import get_last_checkpoint
 from trl import SFTConfig, SFTTrainer
 
@@ -43,13 +45,16 @@ class DataArguments:
     jsonl_path: str = field(default="", metadata={"help": "Training mix (.jsonl or .jsonl.gz, VQA rows)."})
     data_root: str = field(default="", metadata={"help": "VSI-590K root (the rows' `video` paths are relative to it)."})
     max_seq_len: int = field(default=0, metadata={"help": "Drop rows longer than this (0 = keep all)."})
+    checkpoint_above: int = field(default=0, metadata={"help": "With --gradient_checkpointing True: checkpoint "
+                                  "only micro-batches longer than this many tokens (0 = every micro-batch)."})
     init_from_checkpoint: str = field(default="", metadata={"help": "First window only: start from "
                                       "this checkpoint's adapter (LoRA + vggt_projector), fresh optimizer."})
 
 
 class SaveBeforeTimeout(TrainerCallback):
-    """Save once, MARGIN_S before the Slurm window ends (SLURM_JOB_END_TIME), so a chained window
-    loses at most one step. Rank 0 decides and broadcasts so every rank saves on the same step."""
+    """Save once, MARGIN_S before the Slurm window ends (SLURM_JOB_END_TIME), then stop, so a chained
+    window loses at most one step and its job script can hand over to the next link. Rank 0 decides
+    and broadcasts so every rank saves and stops on the same step."""
 
     MARGIN_S = 300
 
@@ -67,12 +72,29 @@ class SaveBeforeTimeout(TrainerCallback):
             near = bool(flag.item())
         if near:
             control.should_save = True
+            control.should_training_stop = True
             self.done = True
             print(f"[SaveBeforeTimeout] saving at step {state.global_step}", flush=True)
         return control
 
 
 class CpuBatchSFTTrainer(SFTTrainer):
+    checkpoint_above = 0  # set by main() from --checkpoint_above
+
+    def training_step(self, model, inputs, *args, **kwargs):
+        """Gradient checkpointing per micro-batch: only for sequences over checkpoint_above tokens.
+
+        A few rows (long scene lists / CoT) are ~4x the typical length and OOM without checkpointing;
+        the rest train ~17% faster without it. The Trainer's gradient_checkpointing_enable() has set
+        each layer's checkpoint function; here we only flip the layers' flag. The gradients are the same."""
+        if self.checkpoint_above and self.args.gradient_checkpointing:
+            if not hasattr(self, "_ckpt_layers"):
+                self._ckpt_layers = [m for m in model.modules() if isinstance(m, GradientCheckpointingLayer)]
+            long = inputs["input_ids"].shape[1] > self.checkpoint_above
+            for m in self._ckpt_layers:
+                m.gradient_checkpointing = long
+        return super().training_step(model, inputs, *args, **kwargs)
+
     def get_train_dataloader(self):
         """Keep micro-batches on the CPU until their own training_step.
 
@@ -89,16 +111,21 @@ class CpuBatchSFTTrainer(SFTTrainer):
             self.accelerator.device_placement = placement
 
 
-def build_lora_config(model_args: ModelArguments) -> LoraConfig:
+# Qwen3.5's Gated-DeltaNet layers (in_proj_a/b are 32-wide head gates: left out).
+LINEAR_ATTN_MODULES = ["in_proj_qkv", "in_proj_z", "out_proj"]
+
+
+def build_lora_config(model_args: ModelArguments, arch: str, linear_attn: bool = False) -> LoraConfig:
     return LoraConfig(
         task_type="CAUSAL_LM",
         r=model_args.lora_r,
         lora_alpha=model_args.lora_alpha,
         lora_dropout=model_args.lora_dropout,
         bias="none",
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+        + (LINEAR_ATTN_MODULES if linear_attn else []),
         # Train and checkpoint the VGGT module with the adapter (else PEFT drops it).
-        modules_to_save=["vggt_projector"],
+        modules_to_save=None if arch == "none" else ["vggt_projector"],
     )
 
 
@@ -128,7 +155,7 @@ def main() -> None:
     logging.info("Train sources: %s", dict(Counter(r.get("source") for r in rows)))
     logging.info("Train question types: %s", dict(Counter(r.get("question_type") for r in rows)))
 
-    model = model_class(vggt_args).from_pretrained(
+    model = model_class(vggt_args, model_args.model_name_or_path).from_pretrained(
         model_args.model_name_or_path,
         attn_implementation=model_args.attn_implementation,
         dtype=torch.bfloat16 if training_args.bf16 else None,
@@ -148,7 +175,8 @@ def main() -> None:
     if resume_ckpt in (True, "latest", "True"):
         resume_ckpt = get_last_checkpoint(str(output_dir))
 
-    peft_config = build_lora_config(model_args)
+    linear_attn = any(n.endswith("in_proj_qkv") for n, _ in model.named_modules())
+    peft_config = build_lora_config(model_args, vggt_args.arch, linear_attn)
     if data_args.init_from_checkpoint and resume_ckpt is None:
         # First window only; later windows restore their own adapter via the resume.
         from .reasoning import load_init_adapter
@@ -164,12 +192,20 @@ def main() -> None:
         processing_class=processor,
         callbacks=[SaveBeforeTimeout()],
     )
+    trainer.checkpoint_above = data_args.checkpoint_above
+    if training_args.gradient_checkpointing:
+        logging.info("gradient checkpointing: %s", f"micro-batches over {data_args.checkpoint_above} tokens"
+                     if data_args.checkpoint_above else "every micro-batch")
     trainable = sum(p.numel() for p in trainer.model.parameters() if p.requires_grad)
     total = sum(p.numel() for p in trainer.model.parameters())
     logging.info("Trainable params: %d / %d (%.2f%%)", trainable, total, 100.0 * trainable / total)
 
     trainer.train(resume_from_checkpoint=resume_ckpt)
-    trainer.save_model(str(output_dir))
+    if trainer.state.global_step < trainer.state.max_steps:  # stopped by SaveBeforeTimeout
+        logging.info("window ends at step %d / %d; the next one resumes", trainer.state.global_step,
+                     trainer.state.max_steps)
+        return
+    trainer.save_model(str(output_dir))  # the final adapter: its adapter_config.json marks the run done
     if torch.cuda.is_available():
         logging.info("peak GPU memory allocated: %.1f GiB", torch.cuda.max_memory_allocated() / 2 ** 30)
 

@@ -29,6 +29,13 @@ SYSTEM_PROMPT = ("You are a spatial reasoning assistant. You are given three inp
                  "[x, y, z, w, d, h]} in metres, origin at the first frame's camera, z up. Then reason "
                  "step by step inside <think>...</think>. Finish with 'Answer: <answer>'.")
 
+# --prompt reason_plain (no VGGT branch): the video only; the scene + reasoning go in the thinking block.
+PLAIN_SYSTEM_PROMPT = ("You are a spatial reasoning assistant. You are given the RGB frames of a video of one "
+                       "indoor scene. Answer the question about the scene. While thinking, first list the "
+                       "objects the question needs inside <scene>...</scene> as a JSON list of {\"label\", "
+                       "\"bbox_3d\": [x, y, z, w, d, h]} in metres, origin at the first frame's camera, z up, "
+                       "then reason step by step. After thinking, finish with 'Answer: <answer>'.")
+
 
 def parse_answer(text: str) -> str:
     """Text after the last line starting with 'Answer:'; the whole text if there is none."""

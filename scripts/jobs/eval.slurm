@@ -1,12 +1,12 @@
 #!/bin/bash
-# One VSI-Bench eval shard on 1 A100, bf16 (submitted by scripts/eval.sh).
+# One VSI-Bench eval shard on 1 GPU (A100, or $GPU), bf16 (submitted by scripts/eval.sh).
 #   args: <experiment> <checkpoint> <eval dir> <num shards> [<num parts> <part index>]
 # The shard index is the array task id. Resumes from rows already on disk.
 set -euo pipefail
 source "${SR_ROOT}/scripts/lib.sh"
 load_config "$1"
 CKPT=$2 EVAL_DIR=$3 NUM_SHARDS=$4
-activate_env a100
+activate_env "${GPU:-a100}"
 offline
 echo "=== ${SLURM_JOB_ID} | ${EXP} | shard ${SLURM_ARRAY_TASK_ID}/${NUM_SHARDS} ${5:+part $6/$5} | ${CKPT} ==="
 args=(

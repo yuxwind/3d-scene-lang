@@ -435,14 +435,14 @@ class Qwen3VLWithVggtForConditionalGeneration(Qwen3VLForConditionalGeneration):
 
 # ================================ experiment flags ================================ #
 
-ARCHS = ("perceiver", "spatialstack", "vlm3r")
+ARCHS = ("perceiver", "spatialstack", "vlm3r", "none")  # none: plain Qwen3-VL, no VGGT branch
 
 
 @dataclass
 class VggtArguments:
     # --- architecture / prompt ---
     arch: str = field(default="perceiver", metadata={"help": f"One of {ARCHS}."})
-    prompt: str = field(default="clean", metadata={"help": "clean | text256 | plain | reason (data.py)."})
+    prompt: str = field(default="clean", metadata={"help": "clean | text256 | plain | reason | reason_plain (data.py)."})
     # --- VGGT backbone and what it sees (data.py) ---
     vggt_backbone: str = field(default="omega", metadata={"help": "omega | vggt1b"})
     vggt_repo: str = field(default="facebook/VGGT-Omega")
@@ -484,7 +484,13 @@ class VggtArguments:
                 self.camera_placeholder_token * self.camera_num_latents)
 
 
-def model_class(args: VggtArguments):
+def model_class(args: VggtArguments, model_name_or_path: str = ""):
+    """``none`` on a non-Qwen3-VL base (Qwen3.5) loads the base's own HF class: the VGGT classes
+    subclass Qwen3-VL. ``none`` on Qwen3-VL keeps ours (identical forward, Liger fused CE)."""
+    if args.arch == "none" and model_name_or_path:
+        from transformers import AutoConfig, AutoModelForImageTextToText
+        if AutoConfig.from_pretrained(model_name_or_path).model_type != "qwen3_vl":
+            return AutoModelForImageTextToText
     if args.arch == "spatialstack":
         from .ablations import SpatialStackForConditionalGeneration
         return SpatialStackForConditionalGeneration
@@ -496,7 +502,10 @@ def model_class(args: VggtArguments):
 
 def initialize_vggt_modules(model, args: VggtArguments, tokenizer, aggregator=None) -> None:
     """Build the trainable VGGT module and attach the frozen backbone. Must run before PEFT
-    wrapping. ``aggregator``: a preloaded one (tests); default: load ``args.checkpoint()``."""
+    wrapping. ``aggregator``: a preloaded one (tests); default: load ``args.checkpoint()``.
+    ``none`` attaches nothing: with no projector and no VGGT the forward is Qwen3-VL's own."""
+    if args.arch == "none":
+        return
     if args.arch == "spatialstack":
         model.initialize_projector(vggt_embed_dim=args.vggt_embed_dim, vggt_layers=args.vggt_layers,
                                    geometry_encoder_layers=args.geometry_encoder_layers,
