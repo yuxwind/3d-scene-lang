@@ -53,6 +53,7 @@ load_config() {
     190k) MIX_JSONL="${SR_ROOT}/data/vqa_train_190k_es_clean.jsonl.gz" ;;
     traces) MIX_JSONL="${SR_ROOT}/data/simplesr_train_traces.jsonl.gz" ;;
     reason190k_vs) MIX_JSONL="${SR_ROOT}/data/reason190k_videoscene_answer.jsonl.gz" ;;  # data/reason190k_videoscene/build.py
+    reason190k_vs_esl31) MIX_JSONL="${SR_ROOT}/data/reason190k_videoscene_esl31_answer.jsonl.gz" ;;  # data/reason190k_videoscene_esl31/build.py
     reason190k_think) MIX_JSONL="${SR_ROOT}/data/reason190k_think_answer.jsonl.gz" ;;  # data/reason190k_think/build.py
     reason190k_scene) MIX_JSONL="${SR_ROOT}/data/reason190k_scene_answer.jsonl.gz" ;;  # data/reason190k_scene/build.py
     *) echo "ERROR: unknown MIX=${MIX}" >&2; exit 1 ;;
