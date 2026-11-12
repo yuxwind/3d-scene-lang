@@ -30,3 +30,4 @@ docs/*.pptx
 *.safetensors
 *.pt
 *.pth
+*.tar.gz
