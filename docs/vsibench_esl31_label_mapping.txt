@@ -1,0 +1,286 @@
+VSI-Bench and Reason-190K labels -> VGG-T-Det 31 classes (ESL31)
+================================================================
+
+Used by data/scenelang_vsibench_gt_esl31/build.py (VSI-Bench GT scenes restricted to what the 31-class
+detector could output) and, in a wider form, by data/reason190k_videoscene_det/build_mix.py (training data).
+
+Counts are GT boxes over the 288 VSI-Bench scenes (data/scenelang_vsibench_gt_firstcam/rows_all5130.jsonl):
+3,197 boxes in 65 labels. 30 labels map to a detector class (2,695 boxes, 84%); 35 labels are dropped (502 boxes).
+
+Detector classes (31)
+---------------------
+cabinet, bed, chair, sofa, table, door, window, bookshelf, picture, counter, desk, curtain, refrigerator,
+toilet, sink, bathtub, trash bin, pillow, monitor, backpack, printer, lamp, mirror, tv, radiator, nightstand,
+plant, microwave, fan, blackboard, stool
+
+1. Identical names (25 labels, 2,584 boxes)
+-------------------------------------------
+VSI-Bench label    detector class    boxes
+chair              chair               897
+table              table               409
+door               door                172
+sofa               sofa                146
+monitor            monitor             115
+pillow             pillow               94
+tv                 tv                   94
+trash bin          trash bin            88
+window             window               83
+bed                bed                  82
+stool              stool                54
+refrigerator       refrigerator         46
+backpack           backpack             43
+toilet             toilet               41
+printer            printer              31
+bookshelf          bookshelf            29
+plant              plant                29
+bathtub            bathtub              28
+lamp               lamp                 24
+mirror             mirror               23
+microwave          microwave            15
+counter            counter              13
+radiator           radiator             12
+nightstand         nightstand           12
+fan                fan                   4
+
+2. Synonyms (5 labels, 111 boxes)
+---------------------------------
+VSI-Bench label    detector class    boxes
+heater             radiator             35
+whiteboard         blackboard           34
+trash can          trash bin            30
+exhaust fan        fan                  10
+table lamp         lamp                  2
+
+3. Detector classes with no VSI-Bench label
+-------------------------------------------
+cabinet, picture, desk, curtain, sink: never appear as VSI-Bench labels.
+desk: VSI-Bench labels desks as "table", so a detector "desk" box counts as a table when matching.
+blackboard: appears only through "whiteboard".
+
+4. Dropped: no detector class (35 labels, 502 boxes)
+----------------------------------------------------
+VSI-Bench label    boxes
+ceiling light        116
+keyboard              49
+computer tower        42
+computer mouse        34
+stove                 28
+telephone             27
+washer                27
+towel                 18
+fireplace             18
+cup                   15
+shoes                 15
+crate                 11
+power strip           10
+clock                  9
+laptop                 8
+bucket                 7
+basket                 7
+blanket                7
+dishwasher             7
+suitcase               6
+cushion                6
+closet                 5
+kettle                 5
+cutting board          4
+pan                    4
+coat rack              4
+bowl                   3
+headphones             2
+shoe rack              2
+mattress               1
+guitar                 1
+washing machine        1
+oven                   1
+piano                  1
+paper bag              1
+
+Borderline choices
+------------------
+ceiling light  not mapped to lamp: docs/dataset.md lists lamp / ceiling light as conflicting labels, not synonyms
+cushion        not mapped to pillow
+closet         not mapped to cabinet
+whiteboard     mapped to blackboard (the least certain of the synonyms)
+
+5. Reason-190K trace labels -> detector classes (data/reason190k_videoscene_det/build_mix.py)
+-----------------------------------------------------------------------------------------
+Counts are objects listed in the <scene> blocks of the 145,647 traces (numbers such as "chair 2" stripped):
+584,807 objects in 242 labels. 58 labels map to a detector class (430,448 objects, 73.6%);
+184 labels are dropped (154,359 objects, 26.4%).
+Per dataset, share of listed objects with a detector class: scannet 91.1%, scannetpp 59.8%, arkitscenes 82.1%.
+table and desk are interchangeable: a trace "table" takes detector table and desk boxes, and the reverse.
+
+5a. Identical names (31 labels, 390,471 objects)
+--------------------------------------------------
+trace label           detector class     objects   ScanNet  ScanNet++  ARKitScenes
+chair                 chair                74385     25038      31180        18167
+door                  door                 44218     21410      22450          358
+table                 table, desk          41325     11236      15117        14972
+window                window               20880     13559       6805          516
+pillow                pillow               17825      8790       9011           24
+bed                   bed                  17040      6395       6080         4565
+tv                    tv                   16795      5336       2952         8507
+sofa                  sofa                 16197      3402       3222         9573
+trash bin             trash bin            15886     15886          0            0
+monitor               monitor              15795      7167       8608           20
+refrigerator          refrigerator         12243      4303       2209         5731
+plant                 plant                 9394      3057       6295           42
+bookshelf             bookshelf             8869      5168       3701            0
+backpack              backpack              8506      6781       1725            0
+desk                  desk, table           7396      7379         17            0
+lamp                  lamp                  7149      5313       1805           31
+radiator              radiator              6903      6856          5           42
+cabinet               cabinet               6869       257       5810          802
+stool                 stool                 6135        12          0         6123
+microwave             microwave             5299      2764       2524           11
+toilet                toilet                5262        45       2313         2904
+mirror                mirror                5229      5181          5           43
+nightstand            nightstand            4006      4006          0            0
+picture               picture               2660       105       2454          101
+sink                  sink                  2561        23       2409          129
+counter               counter               2521      2498         23            0
+printer               printer               2503      1255       1248            0
+curtain               curtain               2470       123       2311           36
+bathtub               bathtub               2168        69          5         2094
+fan                   fan                   1802      1418        381            3
+blackboard            blackboard             180       173          6            1
+
+5b. Synonyms (27 labels, 39,977 objects)
+--------------------------------------------------
+trace label           detector class     objects   ScanNet  ScanNet++  ARKitScenes
+heater                radiator             13580         0      13580            0
+trash can             trash bin             9562        33       9529            0
+board                 blackboard            3951        38       3912            1
+shelf                 bookshelf             3786       206       3390          190
+whiteboard            blackboard            3323         0       3323            0
+table lamp            lamp                  1760         0       1760            0
+poster                picture               1409         0       1407            2
+office chair          chair                  554         3        551            0
+storage cabinet       cabinet                469         0        469            0
+exhaust fan           fan                    429         0        429            0
+painting              picture                412         0        412            0
+couch                 sofa                   366       161         24          181
+bin                   trash bin              177        96         71           10
+kitchen cabinet       cabinet                109         0        109            0
+tv_monitor            tv                      37         0          0           37
+build_in_cabinet      cabinet                 20         0          0           20
+countertop            counter                  7         0          7            0
+armchair              chair                    5         5          0            0
+bathroom cabinet      cabinet                  4         4          0            0
+shower curtain        curtain                  4         4          0            0
+basin                 sink                     3         0          0            3
+end table             table                    2         2          0            0
+coffee table          table                    2         2          0            0
+washbasin             sink                     2         2          0            0
+kitchen counter       counter                  2         2          0            0
+dining table          table                    1         1          0            0
+file cabinet          cabinet                  1         1          0            0
+
+5c. Detector classes that never appear as a trace label
+-------------------------------------------------------
+none
+
+5d. Dropped: no detector class (184 labels, 154,359 objects)
+--------------------------------------------------
+trace label           detector class     objects   ScanNet  ScanNet++  ARKitScenes
+ceiling light         -                     9982         1       9981            0
+keyboard              -                     8746      3404       5342            0
+box                   -                     7265        55       7191           19
+telephone             -                     7203      3438       3765            0
+ceiling lamp          -                     6098         0       6098            0
+stove                 -                     5946        19          2         5925
+towel                 -                     5683      3802       1875            6
+blanket               -                     5528         3       5524            1
+computer mouse        -                     5235      1148       4087            0
+bottle                -                     4690         8       4682            0
+book                  -                     4663        33       4618           12
+shoe                  -                     4489        10       4474            5
+fireplace             -                     4161         1          0         4160
+laptop                -                     4111         3       4108            0
+cup                   -                     3901        10       3889            2
+switch                -                     3262        15       3247            0
+bag                   -                     3167        17       3141            9
+dishwasher            -                     3126         5          0         3121
+suitcase              -                     3077         4       3073            0
+basket                -                     2825         5       2810           10
+washer                -                     2789         0          0         2789
+clock                 -                     2436      1009       1420            7
+light switch          -                     2341         4       2337            0
+bowl                  -                     2336         0       2335            1
+bucket                -                     2189         4       2184            1
+computer              -                     2151         3       2148            0
+slippers              -                     2081         0       2081            0
+jacket                -                     1927        15       1912            0
+kettle                -                     1851         2       1847            2
+shoes                 -                     1839         2       1837            0
+mouse                 -                     1824         2       1822            0
+headphones            -                     1684         0       1684            0
+blinds                -                     1636         6       1630            0
+cushion               -                     1289         2       1286            1
+closet                -                     1276      1276          0            0
+socket                -                     1228        98       1129            1
+paper bag             -                     1183         1       1182            0
+cutting board         -                     1077         0       1077            0
+coat hanger           -                      948         2        946            0
+toilet paper          -                      916        17        895            4
+speaker               -                      883         2        881            0
+crate                 -                      873         0        873            0
+folder                -                      868         0        868            0
+pan                   -                      804         0        801            3
+computer tower        -                      771         0        771            0
+soap dispenser        -                      690         4        686            0
+rack                  -                      660         5        655            0
+guitar                -                      637       630          4            3
+jar                   -                      633         0        633            0
+shoe rack             -                      599         0        599            0
+paper towel           -                      591         0        591            0
+stapler               -                      532         0        532            0
+whiteboard eraser     -                      478         0        478            0
+pot                   -                      472         0        472            0
+tap                   -                      470         0        470            0
+binder                -                      456         0        456            0
+washing machine       -                      448       435          0           13
+toilet brush          -                      442         0        442            0
+bicycle               -                      396       392          0            4
+doorframe             -                      384       220        164            0
+piano                 -                      379       379          0            0
+tissue box            -                      345         3        342            0
+container             -                      338         5        333            0
+eraser                -                      295         0        295            0
+oven                  -                      254       135          0          119
+file folder           -                      227         0        227            0
+brush                 -                      223         0        223            0
+spray bottle          -                      212         0        212            0
+window frame          -                      207         0        207            0
+plant pot             -                      200         0        200            0
+windowsill            -                      109         9        100            0
+
+Dropped labels with fewer than 100 objects (113 labels, 1,324 objects):
+clothes (80), pipe (73), duct (65), paper (63), stand (58), shower (50), wardrobe (47), light (40),
+vanity (35), dispenser (30), rail (30), hanger (27), dresser (24), faucet (24), flowerpot (24),
+object (23), bench (23), stairs (22), carpet (22), case (22), ottoman (21), stall (21), mat (19),
+panel (18), bar (18), fire extinguisher (18), range hood (17), clothing (16), broom (15), copier (14),
+decoration (12), ladder (12), rod (12), mailbox (11), plug (10), soap dish (10), vacuum cleaner (10),
+toy (9), machine (9), sign (9), ball (8), mop (8), stopcock (8), mattress (8), holder (8), cart (8),
+vase (8), luggage (7), bathroom vanity (6), column (6), baseboard (6), tissue (6), umbrella (6),
+person (5), roll (5), ledge (5), shampoo (5), plate (5), clothes dryer (5), tray (5), wire (5), scale (5),
+dish rack (5), pillar (4), beam (4), coffee maker (4), headboard (4), screen (4), tube (4), alarm (4),
+beanbag (4), label (4), structure (3), books (3), frame (3), tv stand (3), dustpan (3), foosball table (3),
+calendar (3), grab bar (3), file (3), coat rack (3), can (3), body loofah (3), chandelier (3),
+seasoning (3), staircase (2), partition (2), air conditioner (2), fruit (2), toilet paper holder (2),
+boots (2), divider (2), support (2), hook (2), map (2), vent (2), furniture (2), roof (2),
+boxes of paper (1), cabinet doors (1), water cooler (1), trophy (1), toilet seat cover dispenser (1),
+paper cutter (1), dumbbell (1), drum (1), magazine (1), case of water bottles (1), purse (1), globe (1),
+kitchenware (1), teapot (1)
+
+Borderline choices (dropped, as for VSI-Bench)
+----------------------------------------------
+ceiling light, ceiling lamp, light, chandelier   not mapped to lamp
+cushion                                          not mapped to pillow
+closet, wardrobe, dresser, vanity                not mapped to cabinet
+blinds                                           not mapped to curtain
+ottoman, bench                                   not mapped to stool / chair
+computer, laptop, screen                         not mapped to monitor
+plant pot, flowerpot                             not mapped to plant
+board                                            mapped to blackboard, although some are cutting boards
