@@ -3,7 +3,9 @@
 
 usage: vsibench_scores.py RUN_DIR_OR_FILE [...] [--method REGEX] [--all-methods] [--csv OUT]
   RUN_DIR: every scores*.json directly inside it is read (scores.json, scores_all.json, scores_3runs.json, ...).
-  --method: keep methods whose name matches (default 'claude', case-insensitive); --all-methods keeps every method.
+  --method: keep methods matching this regex (default: all); --exclude: drop methods matching it
+            (default 'oracle|qwen|baseline|random|chance|blind'; '' keeps everything).
+  --subset: for keys like '<subset> / <full|debiased> / <scene>', keep only this subset (default 'all'; '' = every subset).
 prints: one row per (run, file, method): n, overall, then the 8 VSI-Bench tasks (short names). Numbers as stored.
 --csv: also write the full table to OUT (on the host) and print its path.
 stdlib only.
@@ -22,7 +24,7 @@ def score_files(p):
     return sorted(glob.glob(os.path.join(p, "scores*.json")))
 
 
-def rows(paths, pat, every):
+def rows(paths, pat, excl, subset):
     for p in paths:
         fs = score_files(p)
         if not fs:
@@ -32,7 +34,10 @@ def rows(paths, pat, every):
             if not isinstance(d, dict):
                 continue
             for m, s in d.items():
-                if not isinstance(s, dict) or (not every and not re.search(pat, m, re.I)):
+                if not isinstance(s, dict) or (pat and not re.search(pat, m, re.I)) or (excl and re.search(excl, m, re.I)):
+                    continue
+                parts = [x.strip() for x in m.split("/")]
+                if subset and len(parts) == 3 and parts[0] != subset:
                     continue
                 r = {"run": os.path.basename(os.path.dirname(os.path.abspath(f))), "file": os.path.basename(f),
                      "method": m, "n": s.get("n"), "overall": s.get("overall")}
@@ -50,15 +55,16 @@ def fmt(v):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("paths", nargs="+")
-    ap.add_argument("--method", default="claude")
-    ap.add_argument("--all-methods", action="store_true")
+    ap.add_argument("--method", default="")
+    ap.add_argument("--exclude", default="oracle|qwen|baseline|random|chance|blind")
+    ap.add_argument("--subset", default="all")
     ap.add_argument("--csv")
     a = ap.parse_args()
-    rs = list(rows(a.paths, a.method, a.all_methods))
+    rs = list(rows(a.paths, a.method, a.exclude, a.subset))
     cols = ["n", "overall"] + [s for _, s in TASKS]
-    print(f"{'run':34} {'file':18} {'method':26} " + " ".join(f"{c:>8}" for c in cols))
+    print(f"{'run':34} {'file':18} {'method':34} " + " ".join(f"{c:>8}" for c in cols))
     for r in rs:
-        print(f"{r['run'][:34]:34} {r['file'][:18]:18} {r.get('method','')[:26]:26} "
+        print(f"{r['run'][:34]:34} {r['file'][:18]:18} {r.get('method','')[:34]:34} "
               + " ".join(f"{fmt(r.get(c)):>8}" for c in cols) + (f"  +{r['other']}" if r.get("other") else ""))
     if a.csv:
         keys = ["run", "file", "method"] + cols + ["other"]
