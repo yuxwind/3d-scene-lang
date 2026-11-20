@@ -118,6 +118,10 @@ ap.add_argument("--vsibench_dir")
 ap.add_argument("--out_dir", required=True)
 ap.add_argument("--max_new_tokens", type=int, default=16)
 ap.add_argument("--merge", action="store_true")
+ap.add_argument("--scene_score", action="store_true", help="rvs prompts: write a score per box (the row's, else 1.0)")
+ap.add_argument("--prompt_v2", action="store_true",
+                help="mix-v2 turn (build_mix.py --prompt_v2): score per box + 'trust each box according to its score'; "
+                     "rows with use_scene == false get no scene and 'answer from the video alone'")
 ap.add_argument("--debiased_only", action="store_true")
 ap.add_argument("--indices", help="file with one row index per line: run only those rows")
 ap.add_argument("--thinking", action="store_true", help="Qwen3.5 thinking mode (enable_thinking=True)")
@@ -180,7 +184,10 @@ def report(done):
 RVS_DESC = ("This is the 3D scene: the objects the question is about, one {\"label\", \"bbox_3d\"} per line. "
             "bbox_3d = [x, y, z, w, d, h]: the centre and full size of an upright, axis-aligned box, in metres; "
             "origin at the first frame's camera, z points up.")  # = build.py SCENE_DESC
+RVS_SCORE = " score: the detector's confidence in the box, 1.0 for a ground-truth box."  # = build_mix.py SCORE_DESC
 RVS_MCA = "Answer with the option's letter from the given choices directly."
+RVS_SCORE_V2 = RVS_SCORE + " Trust each box according to its score."  # = build_mix.py SCORE_DESC_V2
+RVS_NO_SCENE = "No 3D scene is given: answer from the video alone.\n"       # = build_mix.py NO_SCENE
 RVS_NA = "Please answer the question using a single word or phrase."
 
 
@@ -212,6 +219,8 @@ def rvs_scene(r):
             seen[lab] = seen.get(lab, 0) + 1
             lab = f"{lab} {seen[lab]}"
         out.append({"label": lab, "bbox_3d": [round(v, 2) for v in (x, y, z, dx * c + dy * si, dx * si + dy * c, dz)]})
+        if args.scene_score or args.prompt_v2:  # build_mix.py --score: detector confidence, 1.0 for ground truth
+            out[-1]["score"] = round(o.get("score", 1.0), 2)
     random.Random(r["index"]).shuffle(out)
     return "<scene>\n[\n" + ",\n".join(json.dumps(o) for o in out) + "\n]\n</scene>\n"
 
@@ -219,7 +228,11 @@ def rvs_scene(r):
 def prompt(r):
     if args.prompt.startswith("rvs_"):
         # --input scene: the sr-q35sc training turn (data/reason190k_scene/build.py drops the video line)
-        body = ("These are frames of a video.\n" if args.input == "video_scene" else "") + RVS_DESC + "\n" + rvs_scene(r) + r["question"]
+        if args.prompt_v2 and not r.get("use_scene", True):
+            body = "These are frames of a video.\n" + RVS_NO_SCENE + r["question"]
+        else:
+            body = ("These are frames of a video.\n" if args.input == "video_scene" else "") + RVS_DESC + \
+                (RVS_SCORE_V2 if args.prompt_v2 else RVS_SCORE if args.scene_score else "") + "\n" + rvs_scene(r) + r["question"]
         if r["question_type"] in MCA_QUESTION_TYPES:
             return body + "\nOptions:\n" + "\n".join(r["options"]) + "\n" + RVS_MCA
         return body + "\n" + RVS_NA

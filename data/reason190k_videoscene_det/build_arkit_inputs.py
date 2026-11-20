@@ -15,13 +15,16 @@ from PIL import Image
 from multiprocessing import Pool
 from arkit_common import traj, boxes, room_theta
 
-ROOT = '/scr/xinyu/data/arkitscenes_reason190k/Training'; MP4 = '/scr/xinyu/data/VSI-590K/arkitscenes'
-OUT = '/scr/xinyu/projects/vggtdet_es56/data/arkit_r190k'; N = 120
+# defaults: Reason-190K. VSI-Bench: ARKIT_ROOT=/scr/xinyu/data/arkitscenes_vsibench/Validation ARKIT_MP4=/scr/xinyu/data/VSI-Bench/arkitscenes
+#   ARKIT_OUT=.../data/arkit_vsibench ARKIT_FIT=frames_arkit_vsibench.json (world -> frame of scenelang_vsibench_gt_firstcam rows)
+E = os.environ.get
+ROOT = E('ARKIT_ROOT', '/scr/xinyu/data/arkitscenes_reason190k/Training'); MP4 = E('ARKIT_MP4', '/scr/xinyu/data/VSI-590K/arkitscenes')
+OUT = E('ARKIT_OUT', '/scr/xinyu/projects/vggtdet_es56/data/arkit_r190k'); N = 120
 ESL31 = ['cabinet', 'bed', 'chair', 'sofa', 'table', 'door', 'window', 'bookshelf', 'picture', 'counter', 'desk',
          'curtain', 'refrigerator', 'toilet', 'sink', 'bathtub', 'trash bin', 'pillow', 'monitor', 'backpack',
          'printer', 'lamp', 'mirror', 'tv', 'radiator', 'nightstand', 'plant', 'microwave', 'fan', 'blackboard', 'stool']
 SYN = {'tv_monitor': 'tv', 'shelf': 'bookshelf'}
-FIT = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frames_arkit.json')))
+FIT = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), E('ARKIT_FIT', 'frames_arkit.json'))))
 
 
 def ply_vertices(path):
