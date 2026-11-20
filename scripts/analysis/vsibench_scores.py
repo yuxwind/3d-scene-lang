@@ -5,7 +5,9 @@ usage: vsibench_scores.py RUN_DIR_OR_FILE [...] [--method REGEX] [--all-methods]
   RUN_DIR: every scores*.json directly inside it is read (scores.json, scores_all.json, scores_3runs.json, ...).
   --method: keep methods matching this regex (default: all); --exclude: drop methods matching it
             (default 'oracle|qwen|baseline|random|chance|blind'; '' keeps everything).
-  --subset: for keys like '<subset> / <full|debiased> / <scene>', keep only this subset (default 'all'; '' = every subset).
+  --subset: for keys naming a dataset (all|scannet|arkitscenes|scannetpp), e.g. 'all / full / full GT' or
+            'fullgt/all/full/rerun', keep only that dataset (default 'all'; '' = every dataset).
+  Metric keys may carry a prefix ('vsibench/overall'); it is stripped.
 prints: one row per (run, file, method): n, overall, then the 8 VSI-Bench tasks (short names). Numbers as stored.
 --csv: also write the full table to OUT (on the host) and print its path.
 stdlib only.
@@ -16,6 +18,9 @@ TASKS = [("obj_appearance_order_accuracy", "app_ord"), ("object_abs_distance_mra
          ("object_counting_mra", "count"), ("object_rel_distance_accuracy", "rel_dist"),
          ("object_size_estimation_mra", "obj_size"), ("room_size_estimation_mra", "room_sz"),
          ("route_planning_accuracy", "route"), ("object_rel_direction_accuracy", "rel_dir")]
+
+
+DATASETS = {"all", "scannet", "arkitscenes", "scannetpp"}
 
 
 def score_files(p):
@@ -37,14 +42,16 @@ def rows(paths, pat, excl, subset):
                 if not isinstance(s, dict) or (pat and not re.search(pat, m, re.I)) or (excl and re.search(excl, m, re.I)):
                     continue
                 parts = [x.strip() for x in m.split("/")]
-                if subset and len(parts) == 3 and parts[0] != subset:
+                ds = [x for x in parts if x in DATASETS]
+                if subset and ds and ds[0] != subset:
                     continue
+                s = {k.split("/")[-1]: v for k, v in s.items()}   # 'vsibench/overall' -> 'overall'
                 r = {"run": os.path.basename(os.path.dirname(os.path.abspath(f))), "file": os.path.basename(f),
                      "method": m, "n": s.get("n"), "overall": s.get("overall")}
                 r.update({short: s.get(k) for k, short in TASKS})
                 extra = [k for k in s if k not in ("n", "overall") and k not in dict(TASKS)]
                 if extra:
-                    r["other"] = ",".join(extra)
+                    r["other"] = f"{len(extra)} other keys"
                 yield r
 
 
