@@ -16,3 +16,5 @@ Every script that reads results, scores, logs or makes plots lives here. The scr
 | Script | What it does |
 |---|---|
 | `inspect_json.py` | Structure of JSON/JSONL result files (keys, types, list lengths, one sample value), plus a file count per pattern. Use it first on an unfamiliar result folder. |
+| `peek.py` | First lines (or `--grep` matches) of text files: docstrings, markdown summaries, logs. Capped. |
+| `vsibench_scores.py` | VSI-Bench table (n, overall, 8 tasks) from `scores*.json` (`{method: {...}}`). Claude rows by default; `--all-methods`, `--csv`. |
