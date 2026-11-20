@@ -60,6 +60,7 @@ load_config() {
     reason190k_mixv2_0) MIX_JSONL="${SR_ROOT}/data/reason190k_mixv2_0_answer.jsonl.gz" ;;  # build_mix.py mix-v2, detector only
     reason190k_mixv2_1) MIX_JSONL="${SR_ROOT}/data/reason190k_mixv2_1_answer.jsonl.gz" ;;  # build_mix.py mix-v2, 1/3 GT + 2/3 detector
     reason190k_mixv2_1_objq) MIX_JSONL="${SR_ROOT}/data/reason190k_mixv2_1_objq_answer.jsonl.gz" ;;  # Exp1: mix-v2-1 with IndoorDet-65-31k (test2-hybrid) boxes, build_mix.py --det_tag objq --classes65
+    reason190k_vs_think) MIX_JSONL="${SR_ROOT}/data/reason190k_videoscene_think_answer.jsonl.gz" ;;  # data/reason190k_videoscene_think/build.py
     reason190k_think) MIX_JSONL="${SR_ROOT}/data/reason190k_think_answer.jsonl.gz" ;;  # data/reason190k_think/build.py
     reason190k_scene) MIX_JSONL="${SR_ROOT}/data/reason190k_scene_answer.jsonl.gz" ;;  # data/reason190k_scene/build.py
     *) echo "ERROR: unknown MIX=${MIX}" >&2; exit 1 ;;
