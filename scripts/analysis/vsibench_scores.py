@@ -7,7 +7,8 @@ usage: vsibench_scores.py RUN_DIR_OR_FILE [...] [--method REGEX] [--all-methods]
             (default 'oracle|qwen|baseline|random|chance|blind'; '' keeps everything).
   --subset: for keys naming a dataset (all|scannet|arkitscenes|scannetpp), e.g. 'all / full / full GT' or
             'fullgt/all/full/rerun', keep only that dataset (default 'all'; '' = every dataset).
-  Metric keys may carry a prefix ('vsibench/overall'); it is stripped.
+  Metric keys may carry a prefix ('vsibench/overall'); it is stripped. Entries shaped {n, runs, mean, std}
+  (repeated runs) print the mean, with the overall std in the last column.
 prints: one row per (run, file, method): n, overall, then the 8 VSI-Bench tasks (short names). Numbers as stored.
 --csv: also write the full table to OUT (on the host) and print its path.
 stdlib only.
@@ -45,13 +46,18 @@ def rows(paths, pat, excl, subset):
                 ds = [x for x in parts if x in DATASETS]
                 if subset and ds and ds[0] != subset:
                     continue
+                note = ""
+                if isinstance(s.get("mean"), dict):   # {n, runs, mean, std}: repeated runs -> mean row, std of overall
+                    sd = {k.split("/")[-1]: v for k, v in (s.get("std") or {}).items()}
+                    note = f"mean of {len(s.get('runs') or [])} runs, overall std {sd.get('overall', float('nan')):.1f}"
+                    s = {"n": s.get("n"), **s["mean"]}
                 s = {k.split("/")[-1]: v for k, v in s.items()}   # 'vsibench/overall' -> 'overall'
                 r = {"run": os.path.basename(os.path.dirname(os.path.abspath(f))), "file": os.path.basename(f),
                      "method": m, "n": s.get("n"), "overall": s.get("overall")}
                 r.update({short: s.get(k) for k, short in TASKS})
                 extra = [k for k in s if k not in ("n", "overall") and k not in dict(TASKS)]
-                if extra:
-                    r["other"] = f"{len(extra)} other keys"
+                if extra or note:
+                    r["other"] = "; ".join(x for x in (note, f"{len(extra)} other keys" if extra else "") if x)
                 yield r
 
 
