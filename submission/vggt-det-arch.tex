@@ -1,0 +1,194 @@
+% VGG-T-Det with SAM 3 + VGGT-SLAM objects (task2-det): design discussion and the check made before any training.
+% Fragment for \input{vggt-det-arch}; needs \usepackage{booktabs}. Refers to sam3.tex (\ref{sec:sam3}, tab:sam3-names).
+% Status: design and measurements only; no detector has been trained with these changes yet.
+% Check: VGGT-SLAM/exps/vsibench_objects/query_cov2.py on the 88 ScanNet VSI-Bench scenes,
+%        ground truth vggtdet_es56/data/scannet/scannet_infos_vsibench88_esl31.pkl (1,273 boxes, 16 classes),
+%        SAM 3 lists all/s3pbox_<scene>.json (fixed 65-name prompts, plain ``door'').
+% Detector code read: vggtdet_es56/code/projects/VGGTDet/vggtdet/{vggtdet.py, vggt_head.py, multiview_pipeline.py}.
+
+\section{Using SAM 3 + VGGT-SLAM objects inside VGG-T-Det}
+\label{sec:vggtdet-arch}
+
+\paragraph{Motivation.}
+The object list from SAM 3 and VGGT-SLAM (Section~\ref{sec:sam3}) has usable labels but wrong counts: extra
+boxes and missing objects, not box geometry, limit its benefit, and box size is the only geometric quantity
+whose correction helps. VGG-T-Det is trained to regress boxes and to reject false ones, but its queries miss
+small objects. We therefore ask how the detector can start from
+the SAM 3 objects: they propose where objects are and what they are called; the detector refines the box and
+decides which proposals to keep.
+
+\paragraph{The detector today.}
+VGG-T-Det takes 256 queries by farthest-point sampling from the point cloud VGGT predicts for the input frames.
+A query carries only the position embedding of its point; its content vector starts at zero. A transformer
+decoder attends from the queries to the VGGT tokens, and a head predicts for each query a centre offset, a size
+and class scores. Predictions are assigned to ground-truth boxes by Hungarian matching on class score and
+generalised IoU, with additional matches for the classes the original model did not have.
+An earlier memorisation test on eight scenes showed that localisation, not classification, fails for small
+objects: a prediction that overlaps a ground-truth box has the right label in 97\% of cases, but only 27\% of the
+boxes had a query inside them and VGGT's cloud had no point at all inside 32\% of them.
+
+\subsection{Queries from the detected objects (task2-det-query)}
+\label{sec:vggtdet-arch-query}
+
+\paragraph{Design.}
+Each SAM 3 + VGGT-SLAM box contributes queries drawn from its own object points, so that an object has queries
+however small it is:
+\begin{itemize}
+\item at least five queries per box, and more for large boxes:
+      $n = \min(12,\; 5 + \mathrm{round}(\text{largest side} / 0.5\,\mathrm{m}))$;
+\item the first query is the object point nearest to the box centre; the others are drawn with probability
+      proportional to the local point density times a weight that decreases with the distance from the centre;
+\item the 256 farthest-point queries are kept, and the object queries are added to them.
+\end{itemize}
+The detector already has a switch that places given 3D points as queries (built for a test with ground-truth
+centres), so the object queries can enter through the same path.
+
+\paragraph{Frame and scale.}
+The SLAM points are in the SLAM frame and scale; the queries live in the frame of the first input image.
+The detector, as it is run today, receives the ground-truth pose of the first frame and a ground-truth scale
+(the mean distance of the scan points from the first camera) in training and at test time. Aligning the SLAM
+objects to the scene with the true scale, by a similarity fit of the camera centres, is therefore consistent
+with the present protocol. A detector that sees the video only would have to use the list's own scale estimate
+instead; Table~\ref{tab:arch-cov} shows what that costs.
+
+\paragraph{Check before training: do the queries land in the ground-truth boxes?}
+We sampled queries as above for the 88 ScanNet scenes of VSI-Bench and counted the ground-truth boxes of the
+detector that contain at least one query (Table~\ref{tab:arch-cov}).
+
+\begin{table}[t]
+\centering
+\caption{Ground-truth boxes that contain at least one query (88 scenes, 1,273 boxes), by the box's largest side.
+Farthest-point: 256 samples of the SLAM cloud. Object queries: from SAM 3 boxes above the given score.
+Centre: boxes with a query within 0.1\,m of the box centre.}
+\label{tab:arch-cov}
+\begin{tabular}{lrrrrrrr}
+\toprule
+Query set & Queries & All & $<0.3$\,m & 0.3--0.6\,m & 0.6--1.2\,m & $>1.2$\,m & Centre \\
+\midrule
+\multicolumn{8}{l}{\emph{Aligned with the true scale}} \\
+Farthest-point, 256              & 256 & 84.0\% &  3.7\% & 65.8\% & 85.1\% & 93.8\% &  4.8\% \\
+Object queries, no threshold     & 362 & 84.3\% & 25.9\% & 80.0\% & 85.5\% & 87.7\% & 16.9\% \\
+Object queries, score $\geq 0.3$ & 302 & 82.4\% & 22.2\% & 78.9\% & 83.9\% & 85.3\% & 14.5\% \\
+Object queries, score $\geq 0.7$ & 188 & 77.5\% & 14.8\% & 74.2\% & 79.2\% & 80.2\% & 13.6\% \\
+Object ($\geq 0.3$) + farthest-point, 256 in total & 256 & 78.2\% & 14.8\% & 73.7\% & 79.2\% & 82.3\% & 13.2\% \\
+\midrule
+\multicolumn{8}{l}{\emph{Aligned with the list's own scale estimate}} \\
+Farthest-point, 256              & 256 & 70.3\% &  0.0\% & 52.1\% & 74.5\% & 76.4\% &  2.4\% \\
+Object queries, score $\geq 0.3$ & 302 & 67.6\% & 14.8\% & 61.6\% & 73.0\% & 66.9\% &  9.9\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+\item \emph{Small objects gain.} Below 0.6\,m the object queries cover 79--80\% of the boxes against 66\% for
+      farthest-point sampling; below 0.3\,m, 22--26\% against 4\% (27 boxes only).
+\item \emph{Large objects lose.} Above 1.2\,m farthest-point sampling covers 94\%, object queries 85--88\%,
+      because SAM 3 misses some large objects entirely.
+\item \emph{Centres are closer.} Three times as many boxes have a query within 0.1\,m of their centre.
+\item \emph{Replacing is worse than adding.} With a fixed budget of 256, mixing the two kinds covers fewer boxes
+      (78\%) than either kind alone. The object queries must be added to the 256, not take their place.
+\item \emph{Scale matters more than the kind of query.} With the estimated scale every row loses about 14
+      points.
+\end{itemize}
+
+\subsection{Labels from the proposals and a keep decision (task2-det-matching)}
+\label{sec:vggtdet-arch-match}
+
+\paragraph{Basic test: the detector as a refiner.}
+The label of an object query is the label of its SAM 3 box, and the class head is not used. A new output decides
+for each SAM 3 box whether it is kept.
+\begin{itemize}
+\item Each SAM 3 box is assigned beforehand to at most one ground-truth box of the same label (its centre inside
+      the ground-truth box, or the reverse, or IoU $\geq 0.25$; one-to-one, best score first).
+\item The queries of an assigned box regress the centre and size of that ground-truth box and have keep $=1$.
+      The queries of an unassigned box have keep $=0$ and no box loss. No Hungarian matching is needed for them.
+\item At test time the queries of one SAM 3 box are pooled into one output box, so no non-maximum suppression is
+      needed.
+\end{itemize}
+The detector then only refines centre and size and removes extra boxes, which is what the list lacks.
+
+\paragraph{Ceiling of the basic test.}
+Table~\ref{tab:arch-keep} gives the result of the assignment on the 88 scenes, for the classes that have
+ground truth there.
+
+\begin{table}[t]
+\centering
+\caption{SAM 3 boxes assigned one-to-one to ground-truth boxes of the same label (88 scenes, true scale).}
+\label{tab:arch-keep}
+\begin{tabular}{rrrrr}
+\toprule
+SAM 3 score & Boxes per scene & Keep & Drop & Ground truth with a same-label box \\
+\midrule
+none       & 31.9 & 31.0\% & 69.0\% & 68.4\% \\
+$\geq 0.3$ & 26.0 & 37.2\% & 62.8\% & 66.8\% \\
+$\geq 0.7$ & 17.0 & 52.9\% & 47.1\% & 62.4\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+\item \emph{Recall is capped at about two thirds.} A detector that only refines and filters cannot find the
+      remaining third, and a lower threshold changes little (62\% to 68\%).
+\item \emph{The weak classes} are picture (20\% of its boxes contain a same-label query at score $\geq 0.3$),
+      trash bin (48\%), cabinet (57\%), window (59\%) and door (67\%); chair, sofa, bed, toilet and desk are at
+      89--96\%.
+\item \emph{The keep target is not rare.} Between half and two thirds of the proposals are negatives, so the keep
+      output has examples of both kinds.
+\end{itemize}
+
+\paragraph{Two limits of the basic test.}
+It cannot add an object that SAM 3 missed. And a correct SAM 3 box on an object that has no annotation is trained
+as ``drop''; this is most likely for ARKitScenes, so the test starts on ScanNet.
+
+\paragraph{Second stage: both kinds of queries.}
+The free queries keep the class head and Hungarian matching and can find the objects SAM 3 missed. For the object
+queries the label enters in two places: in the matching cost, as a penalty for a ground-truth box of another
+label or as a restriction to boxes of the same label; and in the query content, as an embedding of the label
+together with the SAM 3 score and the proposal's size, where the content is zero today.
+
+\subsection{Object features from the 2D detections (task2-det-feature)}
+\label{sec:vggtdet-arch-feat}
+
+A SAM 3 object is seen as a mask in several frames. Its 2D evidence can be aggregated over those frames into
+one feature vector and given to the detector as the content of the object's queries. Three sources are possible
+(Table~\ref{tab:arch-feat}).
+
+\begin{table}[t]
+\centering
+\caption{Sources for a per-object feature, cheapest first.}
+\label{tab:arch-feat}
+\begin{tabular}{llp{0.42\linewidth}}
+\toprule
+ & Source & Cost \\
+\midrule
+A & The detector's own VGGT tokens, averaged under each mask and over the object's views, weighted by the
+    SAM 3 score & No new SAM 3 run; the detector must be given the SLAM keyframes as input frames \\
+B & SAM 3's own embedding of each detection, averaged over the views & SAM 3 must be run again to store them
+    (only masks and scores are stored now) \\
+C & SAM 3 image-encoder features pooled under the mask & Run again, and larger files \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Option A comes first: it needs no new data and tells the decoder which image regions belong to the object.
+Option B carries the strongest semantic signal and is added only if A helps.
+
+\subsection{Order of work}
+
+\begin{enumerate}
+\item Query coverage and the ceiling of the keep decision, without training
+      (done on 88 scenes: Tables~\ref{tab:arch-cov} and~\ref{tab:arch-keep}).
+\item The same measurement on the ScanNet training scenes, whose 65-class ground truth includes small objects.
+\item Basic test on ScanNet: object queries added to the 256 free queries, label from the proposal, keep output,
+      regression targets from the fixed assignment. Validation on the 88 ScanNet scenes of VSI-Bench.
+\item Second stage with both kinds of queries.
+\item Object features, option A.
+\end{enumerate}
+Each stage is judged by the list counts (extra and missing boxes) and by the VSI-Bench score of the language
+model against the unrefined SAM 3 list.
+
+\paragraph{Limits of the check so far.}
+The farthest-point row samples the SLAM cloud as a stand-in for the detector's queries, which are sampled from
+VGGT's own cloud for the input frames. The ground truth of the 88 scenes has boxes for 16 classes of large
+furniture only, so small objects are under-represented. The SAM 3 lists used the fixed 65-name prompts with
+plain ``door'', not ``room door''.

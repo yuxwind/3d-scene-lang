@@ -1,0 +1,75 @@
+% Where the data lives: VGG-T-Det training data (65 classes) and the ARKitScenes VGGT-SLAM + SAM 3 outputs.
+% Fragment for \input{data}; needs \usepackage{booktabs}. State on 2026-11-17.
+% Machines: gandalf (gandalf.cs.nor.ou.edu) and wukong (wukong.cs.nor.ou.edu); /scr is local to each machine.
+
+\section{Data locations}
+\label{sec:data}
+
+\subsection{VGG-T-Det training data (gandalf)}
+
+All info files are in the mmdet3d layout described in Section~\ref{sec:vggtdet-data}. The data root is
+\texttt{/scr/xinyu/data/vggtdet\_es56/data/} (linked as \texttt{vggtdet\_es56/data}); each dataset folder holds
+the info files, \texttt{points/<scene>.bin} and \texttt{posed\_images/<scene>/}.
+
+\begin{table}[h]
+\centering
+\caption{Info files of the 65-class detector, relative to the data root. ``full'' files add the scenes built from
+the raw ARKitScenes and ScanNet++ downloads; config \texttt{vggtdet\_vsi65\_ft\_full.py} trains on them,
+\texttt{vggtdet\_vsi65\_ft.py} on the files without the suffix.}
+\label{tab:data-vggtdet}
+\small
+\begin{tabular}{lll}
+\toprule
+Dataset & File & Scenes \\
+\midrule
+ScanNet      & \texttt{scannet/scannet\_infos\_train\_vsi65.pkl}           & 958 \\
+             & \texttt{scannet/scannet\_infos\_val\_vsi65.pkl}             & 243 \\
+ARKitScenes  & \texttt{arkit\_r190k/arkit\_infos\_train\_vsi65.pkl}        & 2,267 \\
+             & \texttt{arkit\_r190k/arkit\_infos\_train\_vsi65\_full.pkl}  & 3,587 \\
+             & \texttt{arkit\_r190k/arkit\_infos\_val\_vsi65.pkl}          & 562 \\
+             & \texttt{arkit\_r190k/arkit\_infos\_val\_vsi65\_full.pkl}    & 899 \\
+             & \texttt{arkit\_r190k/arkit\_infos\_val\_vsi65\_sub187.pkl}  & 187 (validation in training) \\
+ScanNet++    & \texttt{scannetpp\_r190k/scannetpp\_infos\_train\_vsi65.pkl}       & 218 \\
+             & \texttt{scannetpp\_r190k/scannetpp\_infos\_train\_vsi65\_full.pkl} & 227 \\
+             & \texttt{scannetpp\_r190k/scannetpp\_infos\_val\_vsi65.pkl}         & 24 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Sources (gandalf).}
+\begin{itemize}
+\item ARKitScenes raw 3DOD download (1,668 scenes): \texttt{/scr/xinyu/arkitscenes\_data/raw/Training/}.
+\item ScanNet++ download (614 scenes, 9 with iPhone poses): \texttt{/scr/xinyu/scannetpp\_download/data/};
+      earlier ScanNet++ scenes: \texttt{/scr/xinyu/data/scannetpp\_r190k/data/}; meshes:
+      \texttt{/home/student/xinyu/data/sync/scannetpp\_ply/}.
+\item EmbodiedScan v2 boxes: \texttt{/scr/xinyu/data/embodiedscan\_v2\_clean/embodiedscan\_infos\_\{train,val,test\}.pkl}.
+\item Label map: \texttt{vggtdet\_es56/code/tools/dataset\_converters/vsi65\_label\_map.json}.
+\item Builders: \texttt{vggtdet\_es56/code/tools/vsi65/build\_\{arkit,scannetpp\}\_raw.py},
+      \texttt{tools/vsi63/scannet\_frame.py}; checks in \texttt{tools/vsi63/check\_frames\_*.py}.
+\end{itemize}
+
+\subsection{ARKitScenes VGGT-SLAM and SAM 3 outputs (wukong and gandalf)}
+
+The folder is \texttt{/scr/xinyu/projects/VGGT-SLAM/exps/vsibench\_objects/} on both machines; both hold the
+complete set.
+\begin{itemize}
+\item Scene list: \texttt{scenes\_ark.json} (2,829 scenes; frame folder per scene); halves
+      \texttt{scenes\_ark\{A,B\}.json}, \texttt{ark\_part\{A,B\}\_scenes.txt}.
+\item Reconstructions: \texttt{ark/slam\_<scene>.npz}, 2,829 scenes (VGGT-SLAM, submap 64, up to 100 keyframes).
+\item SAM 3 masks: \texttt{ark/sam3\_<scene>.npz}, 2,829 scenes; 51 ARKitScenes classes
+      (\texttt{prompts\_ark.json}), per-frame confidence $\geq 0.3$; median 912 detections per scene.
+\item Frames read by both: \texttt{vggtdet\_es56/data/arkit\_r190k/posed\_images/<scene>/}.
+\item Run scripts and logs: \texttt{wk\_ark\_all.sh} / \texttt{wk\_ark\_all.log} (wukong),
+      \texttt{gd\_ark\_help.sh} / \texttt{gd\_ark\_help.log} (gandalf).
+\end{itemize}
+
+\subsection{Transfer copies}
+
+\begin{itemize}
+\item wukong \texttt{/scr/xinyu/data/sync/ark\_partB/}: part B for a second machine in seven tar files (code and
+      environment, weights, frames, four reconstruction parts; 151\,GB, \texttt{md5sums.txt}). Paths are stored
+      relative to \texttt{/}, so \texttt{tar -C / -xf} restores them. All seven went through Google Drive
+      \texttt{sync\_3dvlm/ark\_partB/}; status per file in \texttt{check.txt} there.
+\item wukong \texttt{/scr/xinyu/data/sync/}: \texttt{arkitscenes\_reason190k\_boxes\_poses\_part\{00..19\}.tar},
+      \texttt{vggtdet\_es56\_*.tar} (data, weights, checkpoints, code), \texttt{README.md}.
+\end{itemize}

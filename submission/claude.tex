@@ -1,0 +1,56 @@
+% Claude (no code) on VSI-Bench with the vggt-slam-sam3 scene at estimated scale, score-aware prompt (todo 2026.11.18 Exp1-2-2).
+% Fragment for \input{claude}; needs \usepackage{booktabs}. Companion of agent.tex (ground-truth scene, Opus 5.5 vs Fable 5.2).
+% Sources: vggtdet_es56/runs/claude_nocode_s3 (build_est.py -> e2/batches, RULES.md, validate.py, score.py; answers in e2/out),
+% rows: 3d-scene-lang/data/scenelang_vsibench_slam/rows_s3q_roomdoor_radiator_all5130_full.jsonl.
+% Exp1-1-1, Exp1-1-2 (real scale) and Exp1-2-1 (estimated scale, no score instruction) are paused and not reported here.
+
+\section{Language agents without code on predicted scenes}
+\label{sec:claude}
+
+\paragraph{Setup.}
+We repeat the experiment of Section~\ref{sec:agent} with the ground-truth scene replaced by the scene that
+SAM~3 + VGGT-SLAM predicts from the video (Section~\ref{sec:sam3}), at the scale VGGT-SLAM estimates (no
+ground-truth scale). For each question the list holds the SAM~3 boxes of the objects the question names
+(including ``room door'' and ``radiator''), with box score $\geq 0.7$, as upright axis-aligned boxes
+$[x, y, z, d_x, d_y, d_z]$ in the frame of the first camera, each with its score. The prompt states that the boxes
+were predicted by a 3D detector from the video, that objects may be missing, duplicated, mislabelled or misplaced
+and sizes may be off, and that the score is the detector's confidence: high-score boxes should be trusted, and
+typical indoor layouts used where boxes are missing or unreliable (\emph{score-aware}). As before, each question is
+given as text only (no video) and answered by Claude Opus~5.5 sub-agents restricted to the Read and Write tools,
+one question type per batch and at most one question per scene. All 5,130 questions were answered in 289 batches,
+every one with Read and Write only.
+
+\paragraph{Predicted boxes cost 26 points.}
+Table~\ref{tab:claude-s3est} compares the result with the ground-truth scene. With predicted boxes Claude reaches
+59.2 (full) and 55.9 (debiased), against 85.2 and 85.0 with the ground-truth scene. The loss is largest on the tasks
+that need correct metric scale and a complete object list: absolute distance ($-44.6$) and counting ($-43.6$).
+Relative direction, relative distance and object size lose 24 to 35 points. Route planning, which uses the
+box geometry least, is unchanged. Without the video Claude cannot correct the predicted list, and it stays
+about 10 points below the fine-tuned Qwen3.5-4B given the video and the same boxes (69.0 / 62.9).
+
+\begin{table}[t]
+\centering
+\caption{Claude Opus~5.5 without code, given the scene as text (no video). Accuracy (multiple choice) or MRA
+(numeric) per task on all 5,130 VSI-Bench questions; ``Overall'' is the mean over the eight tasks. Predicted:
+SAM~3 + VGGT-SLAM boxes at estimated scale with a score per box and a score-aware prompt. Ground truth: the
+ground-truth scene, answered by Fable~5.2 under the same batching rules (Table~\ref{tab:agent-fable-opus}; Opus~5.5:
+84.3 / 84.1).}
+\label{tab:claude-s3est}
+\begin{tabular}{lrrr}
+\toprule
+Task & Predicted & Ground truth & $\Delta$ \\
+\midrule
+Appearance order   & 36.2 & 56.5  & $-20.3$ \\
+Absolute distance  & 52.0 & 96.6  & $-44.6$ \\
+Counting           & 55.6 & 99.2  & $-43.6$ \\
+Relative direction & 75.9 & 100.0 & $-24.1$ \\
+Relative distance  & 65.4 & 100.0 & $-34.6$ \\
+Object size        & 68.2 & 100.0 & $-31.8$ \\
+Room size          & 52.7 & 63.8  & $-11.1$ \\
+Route planning     & 67.5 & 66.0  & $+1.5$ \\
+\midrule
+VSI-Bench full (5,130)     & 59.2 & 85.2 & $-26.0$ \\
+VSI-Bench debiased (2,362) & 55.9 & 85.0 & $-29.1$ \\
+\bottomrule
+\end{tabular}
+\end{table}

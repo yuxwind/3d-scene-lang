@@ -1,0 +1,54 @@
+% Claude (no code) on VSI-Bench with the ground-truth scene: Opus 5.5 vs Fable 5.2 (todo 2026.11.18 Exp1-3).
+% Fragment for \input{agent}; needs \usepackage{booktabs}.
+% Sources: vggtdet_es56/runs/claude_nocode_s3 (build_gt.py, RULES.md, validate.py, score.py; answers in out/ of set gt),
+% Opus 5.5 run: 3d-scene-lang/docs/reproduce_exps.md:895.
+
+\section{Language agents without code on the ground-truth scene}
+\label{sec:agent}
+
+\paragraph{Setup.}
+Each VSI-Bench question is given as text only: the ground-truth object list of its scene (label, centre, size, and
+yaw, roll and pitch of each box, in metres and radians), the question and its options; no video. The questions are answered by Claude Code sub-agents
+that may use only the Read and Write tools (no code, no calculator), so every computation is done in the model's
+own reasoning. A batch holds one question type and at most one question per scene, and each question is answered
+from its own text only. All 5,130 questions are answered in 289 batches; we checked that every batch used only
+Read and Write.
+
+\paragraph{Fable 5.2 is better than Opus 5.5, on the tasks the boxes do not answer.}
+Table~\ref{tab:agent-fable-opus} compares the two models on the 4,378 questions both answered with the same
+batching. Fable 5.2 scores 85.0 against 83.0. The gain comes from appearance order ($+9.2$) and route planning
+($+8.1$); the geometry tasks are at the ceiling for both models, and room size stays the weak task for both
+(about 61--64). On all of VSI-Bench Fable 5.2 reaches 85.2 (full) and 85.0 (debiased), against 84.3 and 84.1.
+
+\begin{table}[t]
+\centering
+\caption{Claude without code, given the ground-truth scene as text (no video). Accuracy (multiple choice) or
+MRA (numeric) per task; ``Overall'' is the mean over the eight tasks. Upper part: the 4,378 questions outside the
+debiased ScanNet++ subset, answered with the same batching by both models. Lower part: all of VSI-Bench.}
+\label{tab:agent-fable-opus}
+\begin{tabular}{lrrr}
+\toprule
+Task & Opus 5.5 & Fable 5.2 & $\Delta$ \\
+\midrule
+Appearance order   & 45.2  & 54.4  & $+9.2$ \\
+Absolute distance  & 97.2  & 97.0  & $-0.2$ \\
+Counting           & 99.3  & 99.3  & $0.0$ \\
+Relative direction & 100.0 & 100.0 & $0.0$ \\
+Relative distance  & 100.0 & 100.0 & $0.0$ \\
+Object size        & 100.0 & 100.0 & $0.0$ \\
+Room size          & 62.3  & 61.3  & $-1.0$ \\
+Route planning     & 59.9  & 68.0  & $+8.1$ \\
+\midrule
+Overall (4,378 questions) & 83.0 & \textbf{85.0} & $+2.0$ \\
+\midrule
+VSI-Bench full (5,130)        & 84.3 & \textbf{85.2} & $+0.9$ \\
+VSI-Bench debiased (2,362)    & 84.1 & \textbf{85.0} & $+0.9$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Note on the debiased ScanNet++ questions.}
+The remaining 752 questions (debiased ScanNet++) were answered by Opus 5.5 with several questions of the same
+scene in one batch, which helps appearance order (81.9); Fable 5.2 answered them one question per scene (63.8).
+On these questions Opus 5.5 scores 89.9 and Fable 5.2 85.9, but the comparison is not fair to Fable 5.2, so the
+upper part of Table~\ref{tab:agent-fable-opus} leaves them out.

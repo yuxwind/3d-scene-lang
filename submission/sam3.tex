@@ -1,0 +1,727 @@
+% Open-vocabulary object lists from SAM 3 + VGGT-SLAM (task1-sam3): findings.
+% Fragment for \input{sam3}; needs \usepackage{booktabs}.
+% All numbers: VSI-Bench, 5,130 questions, 288 scenes (287 processed); box score threshold 0.7 unless stated.
+% Sources: VGGT-SLAM/exps/vsibench_objects (s3_alt_stats.py, s3_badlist_thr.py, qvocab.py, s3_rows.py),
+% 3d-scene-lang/runs/eval_q35vs_gandalf/{mixv2_1_sam3_full,mixv2_1_s3q_roomdoor}_rvs_question.
+
+\section{Open-vocabulary object lists with SAM 3}
+\label{sec:sam3}
+
+\paragraph{Pipeline.}
+SAM 3 is run on up to 100 VGGT-SLAM keyframes per video with one text prompt per object name
+(per-frame confidence $\geq 0.5$). Each mask is lifted to 3D with the SLAM points, masks of the same name are
+merged across frames, and each merged instance gives one box. The box score is the mean of the three best
+SAM 3 scores times $1-\exp(-\mathrm{views}/2)$. No ground truth is used. The resulting list of
+\{label, box, score\} entries is given to the language model together with the video.
+
+\paragraph{The object list, not the geometry, limits the benefit.}
+Replacing the predicted centres and sizes by ground truth while keeping the SAM 3 list raises the VSI-Bench
+score only from 68.6 to 69.9, whereas the full ground-truth list reaches 77.3. The errors that matter are
+extra boxes and missing objects. With question-name prompts and ``room door'' (below), the list has 414 extra
+and 641 missing boxes against 3,194 ground-truth objects of the names the questions use.
+
+\subsection{Run time}
+\label{sec:sam3-time}
+
+Table~\ref{tab:sam3-time} gives the cost of the two stages, measured on 597 ScanNet++ scenes processed together
+on four NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition GPUs (96\,GB each, machine gandalf) with three
+workers per GPU; the GPUs ran nothing else. VGGT-SLAM receives up to 600 frames per scene and
+keeps 100 keyframes; SAM 3 runs all 65 class prompts on each of the 100 keyframes (per-frame confidence 0.3).
+SAM 3 costs about eight times as much as VGGT-SLAM per scene. Its time hardly varies between scenes, since every
+prompt is run on every keyframe (about 4\,s per keyframe for 65 prompts); with three workers sharing a GPU it is
+limited by GPU compute, so more workers per GPU do not raise the throughput. For comparison, SAM 3 on ARKitScenes on
+four NVIDIA RTX 6000 Ada GPUs (46\,GB each, machine wukong; two workers per GPU) took about
+250\,s per scene per worker with 51 prompts.
+
+\begin{table}[t]
+\centering
+\caption{Run time per scene of the two stages (597 ScanNet++ scenes, 4 NVIDIA RTX PRO 6000 Blackwell Max-Q GPUs,
+96\,GB, 12 workers).}
+\label{tab:sam3-time}
+\begin{tabular}{lrrrr}
+\toprule
+Stage & \multicolumn{3}{c}{Time per scene per worker} & Throughput \\
+      & Median & Mean & 90th percentile & (12 workers) \\
+\midrule
+VGGT-SLAM (600 frames in, 100 keyframes)   &  48\,s &  48\,s &  74\,s & 10 scenes per minute \\
+SAM 3 (65 prompts on 100 keyframes)        & 394\,s & 392\,s & 398\,s & 110 scenes per hour \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Prompt wording changes the number of boxes}
+
+\paragraph{``door'' versus ``room door''.}
+The prompt ``door'' also fires on cabinet, wardrobe and shower doors. It alone produced 37\% of all extra boxes
+(231 of 620). Prompting ``room door'' instead removes most of them at the cost of some recall
+(Table~\ref{tab:sam3-door}).
+
+\begin{table}[t]
+\centering
+\caption{Door boxes for the two prompts (170 ground-truth doors in 114 scenes).
+Found: a box of that label within 0.75\,m of the ground-truth centre.}
+\label{tab:sam3-door}
+\begin{tabular}{lrrrrr}
+\toprule
+Prompt & Boxes & Extra & Missing & Scenes with exact count & Found \\
+\midrule
+``door''      & 391 & 231 & 10 & 31\% & 85\% \\
+``room door'' & 163 &  25 & 32 & 64\% & 76\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{A more specific word is not always better.}
+For tables, every rewording we tried is worse than the plain name (Table~\ref{tab:sam3-table}): ``desk'' removes
+13 extra boxes but loses 61 more tables. The extra table boxes are duplicates of real tables and tables without
+annotation, so they call for better merging, not for another word.
+
+\begin{table}[t]
+\centering
+\caption{Table boxes for four prompts (406 ground-truth tables, 285 scenes, all with ``room door'').}
+\label{tab:sam3-table}
+\begin{tabular}{lrrrrr}
+\toprule
+Prompt & Boxes & Extra & Missing & Scenes with exact count & Found \\
+\midrule
+``table'' (benchmark name)      & 450 & 101 &  57 & 41\% & 75\% \\
+``desk''                        & 376 &  88 & 118 & 35\% & 62\% \\
+``table or desk''               & 529 & 162 &  39 & 34\% & 79\% \\
+``dining table or office desk'' & 287 &  58 & 177 & 36\% & 50\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Which names are detected too rarely or too often.}
+Table~\ref{tab:sam3-names} lists the names with the largest count errors. Two groups appear.
+Names detected too rarely are mostly ones whose benchmark wording is unusual for the object
+(``heater'' for a wall radiator, ``ceiling light'', ``computer tower'') or small objects (basket, shoes, bucket,
+pan, kettle), which have no extra boxes at all. Names detected too often (table, chair, sofa, bed) are large
+furniture that is split into several boxes or duplicated. ``pillow'' and ``cushion'' fire on the same objects.
+Only the door and table wordings have been tested; the others are candidates.
+
+\begin{table}[t]
+\centering
+\caption{Count errors per object name (question-name prompts with ``room door''). Scenes: those whose questions
+use the name and that contain the object.}
+\label{tab:sam3-names}
+\begin{tabular}{lrrrrr}
+\toprule
+Name & Ground truth & Boxes & Extra & Missing & Scenes with too few \\
+\midrule
+\multicolumn{6}{l}{\emph{Too few boxes}} \\
+heater / radiator & 46 & 6 & 0 & 40 & 82\% \\
+ceiling light     & 116 & 53 & 1 & 64 & 72\% \\
+computer tower    & 42 & 25 & 1 & 18 & 71\% \\
+fan / exhaust fan & 14 & 5 & 1 & 10 & 60\% \\
+power strip       & 10 & 6 & 1 & 5 & 57\% \\
+backpack          & 43 & 29 & 0 & 14 & 48\% \\
+window            & 83 & 68 & 11 & 26 & 40\% \\
+\midrule
+\multicolumn{6}{l}{\emph{Too many boxes}} \\
+table & 409 & 454 & 102 & 57 & 23\% \\
+chair & 897 & 864 & 73 & 106 & 26\% \\
+sofa  & 146 & 144 & 30 & 32 & 31\% \\
+bed   & 82 & 106 & 26 & 2 & 3\% \\
+door (``room door'') & 170 & 163 & 25 & 32 & 18\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{The score threshold trades missing objects for extra ones.}
+Lowering the box-score threshold does not fix the list (Table~\ref{tab:sam3-thr}, fixed 65-name prompts): at 0.3
+fewer labels are short of boxes, but there is about one extra box per ground-truth object. About 7\% of labels
+are never found at any threshold, because SAM 3 gives no mask above its per-frame confidence.
+
+\begin{table}[t]
+\centering
+\caption{Per (scene, label) count against ground truth for four score thresholds.}
+\label{tab:sam3-thr}
+\begin{tabular}{rrrrr}
+\toprule
+Threshold & Exact & Too few & Too many & Extra boxes per ground-truth object \\
+\midrule
+0.7 & 44.4\% & 22.6\% & 33.0\% & 0.43 \\
+0.5 & 41.6\% & 15.6\% & 42.8\% & 0.64 \\
+0.3 & 30.9\% &  9.9\% & 59.2\% & 1.06 \\
+0.2 & 24.2\% &  7.0\% & 68.8\% & 1.48 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The vocabulary of the questions}
+
+\paragraph{Seven of eight tasks use a closed list of 65 names.}
+Outside route planning, every object in a VSI-Bench question is one of 65 names, and the wording depends on the
+source dataset (``trash can'' / ``trash bin'', ``heater'' / ``radiator'', ``whiteboard'' / ``blackboard'').
+Prompting SAM 3 with the names a scene's own questions use, in their original wording, gives 15.9 boxes per
+question instead of 41.9 for a fixed list of all names.
+
+\paragraph{Route-planning questions are open-vocabulary.}
+The 194 route-planning questions are free text. Of their 979 object mentions (start, facing direction, goal and
+every ``go forward until''), only 505 (52\%) are one of the 65 names. The rest are other objects
+(sink in 28 scenes, cabinet 11, bathroom sink 8, desk 6, doorframe 6, wardrobe 4),
+objects with an attribute (``blue chair'', ``open door'', ``glass coffee table''),
+spelling variants (``trashbin'', ``bathtube'', ``refridgerator'', ``dinning table'')
+and places that are not objects (wall, ``into the room'', ``outside'').
+A fixed vocabulary therefore gives no box at all for about half of the objects these questions refer to.
+
+\paragraph{Extraction rule.}
+We take each mention in the question's own words, remove articles, position words and trailing relations
+(``the sink on the left'' $\to$ ``sink'', ``foot of the bed'' $\to$ ``bed''), keep attributes
+(``blue chair''), and drop walls, rooms and ``outside''. This gives 183 distinct phrases; 241 (scene, phrase)
+pairs in 147 scenes are not already question names and become additional prompts. Only a plain ``door'' is
+prompted as ``room door''; ``doorframe'', ``doorway'', ``open door'' or ``kitchen door'' are used as written.
+When a route phrase and a benchmark name find the same object, the list keeps one box, shown under the name the
+question uses.
+
+\subsection{Effect on VSI-Bench}
+
+Table~\ref{tab:sam3-vsi} compares the lists with the same language model (Qwen3.5-4B, mix-v2-1).
+Question-name prompts with ``room door'' gain 0.4 / 0.5 points over the fixed 65-name prompts. The gain is in
+counting ($+1.5$) and absolute distance ($+0.8$), the tasks most affected by extra door boxes; the other tasks
+change by at most 0.6. The list still does not beat the video alone.
+Adding the route phrases changes the boxes shown for 130 of the 194 route-planning questions, yet the
+route-planning score stays at 52.1: only 10 answers change, 4 from wrong to right and 4 from right to wrong.
+Section~\ref{sec:sam3-route} examines why.
+
+\begin{table}[t]
+\centering
+\caption{VSI-Bench score (mean over tasks) on all 5,130 questions and on the debiased subset.}
+\label{tab:sam3-vsi}
+\begin{tabular}{lrrrrr}
+\toprule
+Object list & Full & Debiased & Counting & Abs.\ distance & Route planning \\
+\midrule
+None (video only)                               & 69.4 & 63.7 & -- & -- & -- \\
+SAM 3, fixed 65 names                           & 68.6 & 62.3 & 72.0 & 56.6 & 51.5 \\
+SAM 3, question names + ``room door''           & 69.0 & 62.8 & 73.5 & 57.4 & 52.1 \\
+SAM 3, question names + ``room door'' + route phrases & 69.0 & 62.7 & 73.3 & 57.4 & 52.1 \\
+SAM 3 list with ground-truth centre and size    & 69.9 & 63.9 & -- & -- & -- \\
+Ground-truth list                               & 77.3 & 73.9 & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Route planning: are the named objects in the list?}
+\label{sec:sam3-route}
+
+Route planning is the task an open vocabulary should help most, since half of its object mentions are outside
+the 65 names. We therefore check, for each of the 194 questions, whether every object it names has a box in
+the list that includes the route phrases. A question names 659 distinct objects in total, 418 by a benchmark
+name and 241 by another phrase.
+
+\begin{table}[t]
+\centering
+\caption{Route-planning questions: objects named in the question that have at least one box of that name,
+for four box-score thresholds. The evaluated list uses 0.7.}
+\label{tab:sam3-route}
+\begin{tabular}{rrrr}
+\toprule
+Threshold & Questions with every object found & Benchmark names found & Other phrases found \\
+\midrule
+0.7  & 120 / 194 (62\%) & 375 / 418 (90\%) & 198 / 241 (82\%) \\
+0.5  & 145 / 194 (75\%) & 394 / 418 (94\%) & 210 / 241 (87\%) \\
+0.3  & 157 / 194 (81\%) & 400 / 418 (96\%) & 218 / 241 (90\%) \\
+none & 164 / 194 (85\%) & 403 / 418 (96\%) & 222 / 241 (92\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Coverage is incomplete.}
+At the evaluated threshold only 62\% of the questions have a box for every object they name
+(Table~\ref{tab:sam3-route}). The objects missing most often are heater (9 questions), door (7), window (4),
+cabinet (3) and shower (3). Heater is also the main object never found at any threshold (8 questions),
+in line with Table~\ref{tab:sam3-names}; the remaining never-found objects are single cases such as
+``column'', ``trophies'' or ``paper shredder box''.
+
+\paragraph{Found objects are often ambiguous.}
+A route question refers to one specific object (``the door'', ``the blue chair''). At threshold 0.7,
+149 of the 375 found benchmark names and 91 of the 198 found phrases have several boxes of that name, so the
+list does not say which box is meant. Lowering the threshold closes part of the coverage gap but widens this
+one: with no threshold, 295 of the 403 found benchmark names have several boxes.
+
+\paragraph{The language model barely uses the added boxes.}
+The route phrases change the boxes shown for 130 of the 194 questions, and the 6 questions that matched no box
+before now match some. Yet only 10 answers change, 4 from wrong to right and 4 from right to wrong; 101 answers
+are correct with and without the phrases (52.1\%). A likely reason, which we have not
+tested, is that the model was fine-tuned on lists that use the dataset label names, so boxes under free phrases
+are an input it has not been trained to use.
+
+\paragraph{Limits of this check.}
+``Found'' means that a box with the name exists. Free phrases have no ground-truth boxes, so we cannot verify
+that the box is on the right object. Mentions that are not objects (walls, rooms, ``outside'') are not counted.
+
+\paragraph{Conclusion for route planning.}
+Three gaps act together: 38\% of the questions miss at least one named object, about 40\% of the found objects
+are ambiguous, and the model does not exploit the additional boxes. Extending the vocabulary alone therefore
+gives no gain (52.1 with and without route phrases); the task needs boxes that identify the referred instance
+and a model trained on such lists.
+
+\paragraph{Summary.}
+(i) Text prompts are not interchangeable: one word (``room'') removes 206 of 231 extra door boxes, while a
+plausible synonym for table loses 61 objects.
+(ii) Benchmark wording should be kept per dataset, and ambiguous names disambiguated, not replaced by synonyms.
+(iii) A closed vocabulary covers only about half of the objects in free-text questions; taking the prompts from
+the question raises coverage to 82--90\% of the named objects, but does not change the route-planning score
+(Section~\ref{sec:sam3-route}).
+(iv) Wording fixes a minority of the errors: after them, missing objects (641) outnumber extra boxes (414), and
+neither a lower threshold nor rewording removes both.
+
+\subsection{Open questions}
+\label{sec:sam3-open}
+
+\paragraph{Q1. Do the 65 classes (with ``room door'') cover the detector's training data?}
+The detector (VGG-T-Det) is trained on ScanNet, ScanNet++ and ARKitScenes. Do the 65 class names, prompted as
+in Section~\ref{sec:sam3} with ``room door'' for door, cover the annotated objects of these three datasets, and
+which annotated objects fall outside them?
+\emph{Known so far:} the 65 classes are the VSI-Bench names, so every class has a benchmark use, but the
+converse is not measured. In the 242 ScanNet++ scenes that are ready, 7,881 of 27,878 annotations map to one of
+the 65 classes (the rest include walls, floors and the generic ``object''); seven classes have boxes only in
+ScanNet++ (ceiling light, cutting board, paper bag, shoe rack, coat rack, power strip, mattress) and two have
+none there (fireplace, piano). The shares for ScanNet and ARKitScenes, and whether SAM 3 with these prompts
+finds the annotated objects of each class in the training scenes, are still to be measured.
+
+\paragraph{Q2. Do the 65 classes cover the objects named in the Reason-190K questions?}
+The language model is fine-tuned on Reason-190K. If its questions name objects outside the 65 classes, a
+65-class list gives no box for them in training, as it does for route planning in VSI-Bench.
+\emph{Known so far:} not measured for the 65-class set. The measurement is the one of
+Section~\ref{sec:sam3-route} applied to the training questions: the share of questions whose named objects are
+all among the 65 names, per source dataset.
+
+\paragraph{Q3. Should the whole pipeline be open-vocabulary?}
+If the answers to Q1 and Q2 show large gaps, the alternative is to drop the fixed class set: the label of a box
+comes from the SAM 3 prompt, the classification head of the detector is removed, and the detector only refines
+the centre and size of each box and decides whether to keep it. For this to work the detector must receive
+more candidate boxes than are finally kept, so the SAM 3 score threshold would be lowered and the removal of
+extra boxes left to the keep decision.
+\emph{Known so far:} lowering the box-score threshold from 0.7 to 0.3 reduces the labels with too few boxes
+from 22.6\% to 9.9\% but raises the extra boxes per ground-truth object from 0.43 to 1.06
+(Table~\ref{tab:sam3-thr}), so a keep decision would have to remove about one box per object. About 7\% of
+labels are found at no box-score threshold; recovering them needs a lower SAM 3 per-frame confidence (0.5 now),
+which has not been tried. Two risks are open: a correct box on an object without annotation is trained as
+``drop'', and the detector cannot add an object that SAM 3 missed.
+
+\paragraph{Q4. Should SAM 3 run on overlapping video segments that are merged afterwards, like submaps?}
+VGGT-SLAM handles long videos by reconstructing submaps of consecutive frames that share overlapping frames and
+then aligning them. The same scheme could be used for the objects: run SAM 3 on each video segment, with the
+overlapping frames in common, build the object instances per segment, and merge the segment instances at the end,
+using the overlapping frames to decide which instances are the same object.
+\emph{Known so far:} the current pipeline does not use segments. SAM 3 is applied as an image model to each
+keyframe independently (at most 100 keyframes spread evenly over the video, so long videos are subsampled), and
+masks are associated only afterwards in 3D, by the overlap of their lifted points over the whole video. Extra
+boxes from this global merge are the main count error for large furniture (Table~\ref{tab:sam3-names}), and
+errors of the global reconstruction enter every association. Open points: whether SAM 3's video mode, which
+tracks an object through consecutive frames, gives cleaner instances within a segment than per-frame masks;
+whether merging per segment and then across segments produces fewer duplicates than one global merge; and how
+many keyframes per segment are needed so that small objects are seen in several views.
+
+\paragraph{Q5. Which count errors can be fixed by wording, and which need better merging?}
+Two groups of names have wrong box counts (question-name prompts with ``room door'', box score $\geq 0.7$).
+For the names with too few boxes, the benchmark wording is the likely cause, and
+Table~\ref{tab:sam3-q5-few} lists a wording to try for each. For the names with too many boxes, the likely
+cause is the merging of masks into instances, not the wording (Table~\ref{tab:sam3-q5-many}).
+\emph{Known so far:} only the door and table wordings have been tested
+(Tables~\ref{tab:sam3-door} and~\ref{tab:sam3-table}). The wordings and causes in the two tables below are
+hypotheses read from the counts; none has been tested. Small objects with too few boxes and no extra boxes
+(basket, shoes, bucket, pan, kettle, blanket, bowl, cup) are probably not a wording problem; a lower SAM 3
+per-frame confidence is the more likely remedy.
+
+\begin{table}[t]
+\centering
+\caption{Names with too few boxes, where the wording is the likely cause, and the wording to try (untested).}
+\label{tab:sam3-q5-few}
+\begin{tabular}{lrrrl}
+\toprule
+Name & Ground truth & Boxes & Scenes with too few & Wording to try \\
+\midrule
+heater / radiator & 46  & 6  & 82\% & ``radiator'' for both, or ``wall radiator'' \\
+ceiling light     & 116 & 53 & 72\% & ``ceiling lamp'' (the ScanNet++ annotators' word) \\
+computer tower    & 42  & 25 & 71\% & ``desktop computer'', ``PC case'' \\
+fan / exhaust fan & 14  & 5  & 60\% & ``ventilation fan'' \\
+power strip       & 10  & 6  & 57\% & ``extension cord with sockets'' \\
+counter           & 13  & 12 & 55\% & ``kitchen counter'' \\
+backpack          & 43  & 29 & 48\% & ``bag'' as a second prompt \\
+window            & 83  & 68 & 40\% & unclear; may be visibility, not wording \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Names with too many boxes, where merging rather than wording is the likely cause (untested).}
+\label{tab:sam3-q5-many}
+\begin{tabular}{lrrrl}
+\toprule
+Name & Ground truth & Boxes & Extra & Likely cause \\
+\midrule
+table            & 409 & 454 & 102 & duplicates, tables without annotation \\
+chair            & 897 & 864 & 73  & duplicates (also 106 missing) \\
+sofa             & 146 & 144 & 30  & sectional sofas split into pieces \\
+bed              & 82  & 106 & 26  & bed split into several boxes \\
+tv               & 94  & 96  & 15  & monitors detected as tv \\
+pillow / cushion & 100 & 105 & 20  & the two names detect the same objects \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Q6. Which box-score threshold is best for the language model?}
+All VSI-Bench results above use boxes with score $\geq 0.7$. The count statistics
+(Table~\ref{tab:sam3-thr}) show that a lower threshold trades missing objects for extra boxes, but not which side
+of the trade the language model prefers: every box is given with its score and the model is told to trust a box
+according to it, so it may tolerate low-score boxes. We evaluate the same list (prompts = the names in the
+scene's questions, ``room door'' for door) at thresholds 0.1, 0.3, 0.5, 0.7 and 0.9 on all 5,130 questions with
+the same model.
+\emph{Result:} the threshold hardly matters (Table~\ref{tab:sam3-q6}). Over a threefold change in the
+number of boxes, the full score stays between 68.3 and 69.2 and the debiased score between 62.2 and 62.8; 0.7 is
+best or within 0.2 of the best on both. The one clear trend is counting, which falls steadily as the threshold
+is lowered (74.0 at 0.9, 69.7 at 0.1): extra boxes are counted. Relative distance (66.3 to 68.9), absolute distance and
+route planning change without a trend. No threshold reaches the video-only score (69.4 / 63.7), so the
+threshold is not the lever; lowering it is useful only if a later stage removes the extra boxes.
+
+\begin{table}[t]
+\centering
+\caption{VSI-Bench score for five box-score thresholds (question names + ``room door''). Boxes: mean number of
+boxes in the list of a scene before the list is restricted to the objects a question names.}
+\label{tab:sam3-q6}
+\begin{tabular}{rrrrrrrr}
+\toprule
+Threshold & Boxes & Full & Debiased & Counting & Abs.\ distance & Rel.\ distance & Route planning \\
+\midrule
+0.1 & 32.6 & 68.3 & 62.2 & 69.7 & 56.8 & 68.0 & 52.1 \\
+0.3 & 26.4 & 68.7 & 62.7 & 70.9 & 56.8 & 67.7 & 53.1 \\
+0.5 & 19.5 & 68.5 & 62.2 & 72.2 & 57.3 & 66.3 & 50.5 \\
+0.7 & 15.9 & 69.0 & 62.8 & 73.5 & 57.4 & 66.9 & 52.1 \\
+0.9 & 10.0 & 69.2 & 62.2 & 74.0 & 56.7 & 68.9 & 52.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Q7. The estimated scale is too large on average. Can it be improved, and should VGG-T-Det refine it?}
+VGGT-SLAM reconstructs a scene up to an unknown scale. The pipeline estimates the metric scale from the objects:
+for every well-seen instance of a class with a size prior, the ratio of the prior footprint and height to the
+measured ones is taken, and the scale is the 35th percentile of these ratios (a low percentile, because partly
+seen objects measure too small and would otherwise inflate the scale).
+\emph{Known so far:} against the true scale (from the ground-truth camera poses), the estimate is too large in
+the median by 4\% and in the mean by 11\% (Table~\ref{tab:sam3-q7}). The error is skewed: a tenth of the scenes
+is more than a third too large, a tenth more than 13\% too small. Only 48\% of the scenes are within 10\% and
+74\% within 20\%. The scale error is the largest geometric error of the list: in the ablation of
+Section~\ref{sec:sam3}, ground-truth box sizes are the only geometric correction that helps the language model,
+and in the query check for the detector the estimated scale costs 9 to 14 points of box coverage compared with
+the true scale.
+
+\begin{table}[t]
+\centering
+\caption{Estimated scale divided by true scale, per scene (question names + ``room door'').}
+\label{tab:sam3-q7}
+\begin{tabular}{lrrrrrr}
+\toprule
+Dataset & Scenes & Median & Mean & 10th--90th percentile & Within 10\% & Within 20\% \\
+\midrule
+ScanNet     &  88 & 1.06 & 1.14 & 0.89--1.33 & 49\% & 78\% \\
+ARKitScenes & 150 & 1.05 & 1.10 & 0.86--1.35 & 43\% & 70\% \\
+ScanNet++   &  49 & 1.03 & 1.07 & 0.83--1.30 & 65\% & 78\% \\
+All         & 287 & 1.04 & 1.11 & 0.87--1.34 & 48\% & 74\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Ways to improve the estimate (the first three are tested below):
+\begin{itemize}
+\item \emph{Camera height.} The height of the camera above the floor is measured in the reconstruction and is
+      close to a constant for hand-held video; it gives a second, object-free scale estimate. It can be combined
+      with the object ratios or used to reject outliers.
+\item \emph{More reliable objects.} Use only instances seen completely (mask not cut by the image border, many
+      views), prefer classes with a narrow size distribution (door height, toilet, bed length) over classes with
+      a wide one (table, cabinet), and weight the ratios by the spread of the class prior.
+\item \emph{Calibrate the percentile.} The 35th percentile was set by hand; the bias in Table~\ref{tab:sam3-q7}
+      suggests a lower one, and it can be fitted on the training scenes, per dataset if needed.
+\item \emph{A learned metric prior.} A monocular metric-depth model on a few keyframes gives the scale without
+      object priors.
+\end{itemize}
+
+\emph{Tested without training} (Table~\ref{tab:sam3-q7b}; constants fitted on 939 ScanNet training scenes, evaluated on
+the 287 VSI-Bench scenes; the ground truth is used for the evaluation only).
+The bias is easy to remove: taking the 30th instead of the 35th percentile of the object ratios centres the
+estimate (median 1.01) and halves the share of scenes that are more than 30\% too large (14\% to 9\%). The spread
+hardly changes: the typical error stays near 15\% and only half of the scenes are within 10\%. The other ideas
+do not help. The camera height is not a usable constant: its true value is 0.8\,m in ScanNet and 1.3\,m in
+ARKitScenes and ScanNet++, and it varies from 0.5 to 1.4\,m within ScanNet, so a scale from the camera height
+alone is far worse, and mixing it with the object estimate is worse than the object estimate alone. Weighting
+the classes by how reliable their size is, with the per-class bias removed, gives the same error as the plain
+percentile. The limit is therefore the size priors themselves: object sizes vary too much within a class to fix
+the scale to better than about 15\% from a handful of objects. A better scale needs another source of metric
+information, a metric-depth model or the detector.
+
+\begin{table}[t]
+\centering
+\caption{Scale estimators that use no ground truth. Error: mean absolute log ratio of estimated to true scale.}
+\label{tab:sam3-q7b}
+\begin{tabular}{lrrrrr}
+\toprule
+Estimator & Median ratio & Error & Within 10\% & Within 20\% & More than 30\% too large \\
+\midrule
+Object ratios, 35th percentile (current)          & 1.04 & 0.154 & 48\% & 74\% & 14\% \\
+Object ratios, 30th percentile                    & 1.01 & 0.146 & 51\% & 76\% &  9\% \\
+Object ratios, 25th percentile                    & 0.98 & 0.152 & 49\% & 76\% &  7\% \\
+Object heights only, 35th percentile              & 1.06 & 0.202 & 48\% & 71\% & 18\% \\
+Classes weighted by reliability, bias removed     & 0.95 & 0.155 & 45\% & 75\% &  8\% \\
+Camera height only                                & 0.90 & 0.367 & 14\% & 40\% & 31\% \\
+Object estimate and camera height, equal weights  & 0.96 & 0.216 & 28\% & 61\% & 20\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Should VGG-T-Det refine the scale? Today the detector cannot: it is given a ground-truth scale (the mean distance
+of the scan points from the first camera) with its input, in training and at test time, so it never sees the
+scale error. Two designs are possible. (i) The detector keeps receiving a scale, now the estimated one, and its
+size regression has to absorb the error; this needs training with the estimated scale, or with the true scale
+perturbed by the error distribution of Table~\ref{tab:sam3-q7}. (ii) The detector predicts one scale correction
+per scene from all its queries together, which is applied to every box; a per-scene quantity is better
+estimated from all objects at once than box by box. In both cases the question is whether the images and VGGT
+tokens carry enough metric information beyond the object size priors the pipeline already uses.
+
+
+\subsection{Answers so far to Q1, Q2 and Q5}
+\label{sec:sam3-answers}
+
+\paragraph{Q1: coverage of the detector's training data.}
+Table~\ref{tab:sam3-a1} counts the annotated objects that fall into the 65 classes. A third (ScanNet) to more
+than half (ScanNet++) of the annotated objects are outside them; these are mostly small clutter (book, paper,
+box, bottle, socket, clothes, bag, light switch), spread over 3,126 distinct labels in ScanNet++. Only
+ScanNet++ has boxes for all 65 classes. Seven classes exist in ScanNet++ alone: ceiling light (2,501 boxes),
+power strip (241), mattress (138), cutting board (113), paper bag (110), coat rack (71) and shoe rack (49).
+ARKitScenes has no boxes for 14 classes, among them counter, desk, monitor, closet and computer tower.
+Whether SAM 3 finds the annotated objects in the training scenes is not measured yet.
+
+\begin{table}[t]
+\centering
+\caption{Annotated objects of the three training datasets and the share that falls into the 65 classes.
+Structure: walls, floors, ceilings and the generic ``object''.}
+\label{tab:sam3-a1}
+\begin{tabular}{lrrrrr}
+\toprule
+Dataset & Annotations & Structure & Objects & In the 65 classes & Classes with boxes \\
+\midrule
+ScanNet (EmbodiedScan, 1,201 scenes)     &  48,964 & 30.1\% & 34,220 & 66.4\% & 57 \\
+ARKitScenes (EmbodiedScan, 4,498 scenes) & 102,623 & 16.3\% & 85,926 & 86.9\% & 51 \\
+ScanNet++ (905 scenes)                   & 100,799 & 29.9\% & 70,672 & 42.4\% & 65 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Q2: coverage of the Reason-190K questions.}
+The objects a training question is about are the labels of its object list (Table~\ref{tab:sam3-a2};
+room-size questions name none and are left out). Questions from ScanNet and ARKitScenes are covered almost
+completely; the only notable gap is bicycle (287 ScanNet questions). Of the ScanNet++ questions, 28\% name an
+object outside the 65 classes, most often light switch (2,337 questions), board (2,089), bottle, box, switch,
+bag, slippers, book, blinds and jacket. That is about 18,400 of the 143,437 training questions (13\%).
+
+\begin{table}[t]
+\centering
+\caption{Reason-190K questions whose named objects are all in the 65 classes. Exact: the class names and their
+VSI-Bench synonyms. With renamings: also the dataset labels mapped to a class (ceiling lamp, shelf, mouse,
+coat hanger, shoe, poster, office chair, couch).}
+\label{tab:sam3-a2}
+\begin{tabular}{lrrrr}
+\toprule
+Source & Questions & Exact & With renamings & Object mentions covered \\
+\midrule
+ScanNet     &  49,569 & 98.7\% & 98.9\% & 99.5\% \\
+ARKitScenes &  28,485 & 99.1\% & 99.6\% & 99.8\% \\
+ScanNet++   &  65,383 & 64.4\% & 71.8\% & 87.0\% \\
+All         & 143,437 & 83.1\% & 86.7\% & 93.6\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Q5, wording: the proposed rewordings mostly do not help.}
+Each rewording of Table~\ref{tab:sam3-q5-few} was run as a single SAM 3 prompt on the scenes whose questions
+name the object and substituted for the benchmark name (Table~\ref{tab:sam3-a5}). Only one is a clear gain:
+prompting ``radiator'' also where the question says ``heater'' raises the boxes from 6 to 21 for 46 objects and
+the objects found from 11\% to 39\%. ``Ceiling lamp'', ``desktop computer'', ``PC case'' and ``extension cord with sockets'' find
+fewer objects than the benchmark name. ``Kitchen counter'' and ``bag'' find nearly all objects (85\% and 88\%)
+but add many extra boxes (14 for 13 counters, 22 for 43 backpacks), so they exchange one count error for the
+other. ``Ventilation fan'' changes nothing. The benchmark names are thus mostly as good as or better than the alternatives, and the low recall of
+ceiling light, computer tower, fan and power strip is not a wording problem.
+
+\begin{table}[t]
+\centering
+\caption{Rewordings tested (box score $\geq 0.7$). Found: objects with a box of that name within 0.75\,m.
+Exact: scenes with the right number of boxes.}
+\label{tab:sam3-a5}
+\begin{tabular}{llrrrrrr}
+\toprule
+Object (ground truth) & Prompt & Boxes & Extra & Missing & Found & Exact & Verdict \\
+\midrule
+heater / radiator (46) & benchmark name            &  6 &  0 & 40 & 11\% & 18\% & \\
+                       & ``radiator''              & 21 &  1 & 26 & 39\% & 44\% & better \\
+                       & ``wall radiator''         & 15 &  1 & 32 & 28\% & 35\% & better \\
+ceiling light (116)    & benchmark name            & 53 &  1 & 64 & 39\% & 24\% & \\
+                       & ``ceiling lamp''          & 21 &  0 & 95 & 16\% & 10\% & worse \\
+computer tower (42)    & benchmark name            & 25 &  1 & 18 & 50\% & 14\% & \\
+                       & ``desktop computer''      & 37 & 10 & 15 & 38\% & 14\% & worse \\
+                       & ``PC case''               & 13 &  0 & 29 & 26\% &  0\% & worse \\
+fan / exhaust fan (14) & benchmark name            &  5 &  1 & 10 & 21\% & 30\% & \\
+                       & ``ventilation fan''       &  6 &  1 &  9 & 29\% & 30\% & no change \\
+power strip (10)       & benchmark name            &  6 &  1 &  5 & 40\% & 29\% & \\
+                       & ``extension cord with sockets'' & 0 & 0 & 10 & 0\% & 0\% & worse \\
+counter (13)           & benchmark name            & 12 &  6 &  7 & 31\% & 18\% & \\
+                       & ``kitchen counter''       & 27 & 14 &  0 & 85\% & 36\% & more found, more extra \\
+backpack (43)          & benchmark name            & 29 &  0 & 14 & 67\% & 52\% & \\
+                       & ``bag''                   & 64 & 22 &  1 & 88\% & 55\% & more found, more extra \\
+                       & ``backpack'' and ``bag''  & 68 & 25 &  0 & 93\% & 52\% & more found, more extra \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Q5, decision.}
+``Radiator'' is adopted: every scene whose questions say ``heater'' or ``radiator'' is prompted with ``radiator'',
+and the box keeps the name the question uses. Over all 287 scenes this lowers the missing boxes of the list from
+641 to 627 and leaves the extra boxes unchanged (414 to 415); the share of (scene, name) pairs with the exact
+count rises from 54.2\% to 54.8\%. Radiators remain a weak class: 26 of 46 are still missing.
+``Kitchen counter'' and ``bag'' are on hold: they find nearly all objects but add many extra boxes, so they are
+useful only once a later stage removes extra boxes. The other rewordings are rejected. The prompt set is
+therefore the names of the scene's questions with two substitutions, ``room door'' for door and ``radiator''
+for heater.
+
+\paragraph{Q5, extra boxes: half of them are on nothing that is annotated.}
+Of 2,967 boxes with score $\geq 0.7$ in all scenes, 2,368 match a ground-truth object of their name and 599 do
+not. Of these 599, 299 (50\%) lie where nothing is annotated, 163 (27\%) duplicate an object that already has a
+box, and 137 (23\%) lie on an object of another class (Table~\ref{tab:sam3-a5x}). This corrects two guesses of
+Table~\ref{tab:sam3-q5-many}. Duplicates are not the main cause for table, chair and sofa, so better merging
+would remove about a quarter of the extra boxes at most; only for bed do duplicates lead. And tv boxes are
+rarely on monitors (2 cases). Chair and sofa are confused in both directions, and pillow and cushion boxes often
+land on the sofa or bed they lie on. Whether a box on nothing annotated is a real object without annotation or a
+false detection cannot be told from the counts.
+
+\begin{table}[t]
+\centering
+\caption{What the boxes of a name are (all 287 scenes, score $\geq 0.7$).}
+\label{tab:sam3-a5x}
+\begin{tabular}{lrrrrrl}
+\toprule
+Name & Boxes & Matched & Duplicate & Other class & Nothing annotated & Main other class \\
+\midrule
+table   & 454 & 317 & 48 & 25 & 64 & chair 11, bed 5 \\
+chair   & 864 & 739 & 23 & 27 & 75 & sofa 17, table 6 \\
+sofa    & 144 & 106 & 11 & 10 & 17 & chair 8 \\
+door    & 163 & 131 &  6 &  2 & 24 & -- \\
+bed     & 106 &  77 & 14 &  2 & 13 & -- \\
+pillow  &  93 &  70 &  9 & 13 &  1 & sofa 6, bed 4 \\
+tv      &  96 &  78 &  8 &  5 &  5 & monitor 2 \\
+cushion &  12 &   5 &  1 &  6 &  0 & sofa 3, chair 3 \\
+\midrule
+All names & 2,967 & 2,368 & 163 & 137 & 299 & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{True scale against estimated scale}
+\label{sec:sam3-scale}
+
+The SAM 3 + VGGT-SLAM list estimates its metric scale from object sizes (Q7). To measure what that estimate costs, the
+same list (prompts from the scene's questions, ``room door'', ``radiator'') was scored once as it is and once with
+its scale replaced by the true one, obtained by fitting the reconstructed cameras to the ground-truth cameras.
+Nothing else changes: the same boxes, only rescaled about the first camera. The estimated scale is a median 10\%
+off (49\% of the scenes within 10\%, 87\% within 30\%).
+
+\paragraph{3D boxes.} Table~\ref{tab:sam3-scale-3d}: predicted boxes are matched to ground-truth boxes of the same
+label (287 VSI-Bench scenes, 3,194 objects); precision counts boxes with score $\geq 0.7$. The true scale improves
+every loose-match measure by 5 to 9 points, on all three datasets (Table~\ref{tab:sam3-scale-ds}). Tight matches do
+not improve (mAP@0.50 stays near 4): the scale only fixes the distance of every box from the camera, not the boxes'
+shape and placement errors.
+
+\begin{table}[t]
+\centering
+\caption{SAM 3 + VGGT-SLAM boxes with the estimated and the true scale (287 VSI-Bench scenes, 3,194 objects).}
+\label{tab:sam3-scale-3d}
+\begin{tabular}{lrrr}
+\toprule
+ & Estimated scale & True scale & Change \\
+\midrule
+Recall, IoU $\geq 0.25$             & 30.5 & 38.2 & $+7.7$ \\
+Precision, IoU $\geq 0.25$          & 32.5 & 40.3 & $+7.8$ \\
+mAP@0.25                            & 17.2 & 22.2 & $+5.0$ \\
+Recall, IoU $\geq 0.5$              &  8.1 & 11.2 & $+3.1$ \\
+mAP@0.50                            &  4.4 &  4.0 & $-0.4$ \\
+Recall, centre within 0.5\,m        & 67.3 & 75.9 & $+8.6$ \\
+Precision, centre within 0.5\,m     & 65.8 & 73.9 & $+8.1$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Recall at IoU $\geq 0.25$ by dataset.}
+\label{tab:sam3-scale-ds}
+\begin{tabular}{lrrr}
+\toprule
+Dataset & Objects & Estimated scale & True scale \\
+\midrule
+ScanNet     & 1,224 & 32.0 & 41.9 \\
+ARKitScenes &   854 & 34.8 & 43.0 \\
+ScanNet++   & 1,116 & 25.4 & 30.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{VSI-Bench.} Table~\ref{tab:sam3-scale-vsi} gives the score of the default language model (mix-v2-1) with
+the two lists. The true scale helps the two metric tasks a little (absolute distance $+1.0$, size $+1.3$) and leaves
+the overall score unchanged; counting even drops by 1.1, within the noise of a single run. The scale error therefore
+costs far less than the errors in the list itself: which objects are listed and how loose their boxes are.
+
+\begin{table}[t]
+\centering
+\caption{VSI-Bench (all 5,130 questions) with the SAM 3 + VGGT-SLAM list at the estimated and the true scale.}
+\label{tab:sam3-scale-vsi}
+\begin{tabular}{lrrrrr}
+\toprule
+SAM 3 list & Full & Debiased & Abs.\ distance & Size & Counting \\
+\midrule
+Estimated scale & 69.0 & 62.9 & 57.5 & 73.4 & 73.5 \\
+True scale      & 69.1 & 63.0 & 58.5 & 74.7 & 72.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Which results use the true scale.} Every VGG-T-Det variant (the released 18-class model, cls-31, cls-63,
+cls-65 and IndoorDet-65-31k) multiplies VGGT's normalized point cloud by the mean distance of the ground-truth scan
+from the first camera and uses the first camera's ground-truth pose, in training and at test time; the proposals of
+IndoorDet-65-31k are placed with the true scale as well. All object lists built from a detector, and all language-model
+training data (ground-truth and detector boxes), are therefore metric with the true scale. Only the SAM 3 + VGGT-SLAM
+lists use an estimated scale, so they are the only video-only lists, and the language model sees a scale error only
+at test time with them.
+
+Table~\ref{tab:sam3-scale-use} lists which runs use the true scale.
+
+\begin{table}[t]
+\centering
+\caption{Runs with and without the true scale. ``True scale'' = metric scale from the ground-truth scan (detectors) or
+from fitting the reconstructed cameras to the ground-truth cameras (SAM 3 lists); ``estimated'' = from object size
+priors, with up direction and walls from the reconstruction and the first camera as origin (no ground truth).}
+\label{tab:sam3-scale-use}
+\small
+\begin{tabular}{llll}
+\toprule
+Run & Stage & Scale & Used for \\
+\midrule
+\multicolumn{4}{l}{\emph{Without the true scale (video only)}} \\
+SAM 3 + VGGT-SLAM lists, all prompt variants (fixed 65 names, question & test & estimated & VSI-Bench, e.g.\ 69.0 / 62.9 \\
+\quad names, ``room door'', ``radiator'', route phrases, thresholds 0.1--0.9) & & & \\
+VGGT-SLAM lists with oracle 2D boxes (\texttt{slam\_manh}, \texttt{slamall\_manh}) & test & estimated & VSI-Bench \\
+SAM 3 list ablation: predicted centre and size cells & test & estimated & VSI-Bench (Section~\ref{sec:sam3}) \\
+SAM 3 list, estimated-scale arm of Table~\ref{tab:sam3-scale-3d} & test & estimated & 3D evaluation, VSI-Bench \\
+Video-only model & train, test & no boxes & VSI-Bench 69.4 / 63.7 \\
+\midrule
+\multicolumn{4}{l}{\emph{With the true scale}} \\
+VGG-T-Det: released 18-class, ES-56, cls-31, VSI-40, cls-63, cls-65 & train, test & true & detection; VSI-Bench lists \\
+IndoorDet-65-31k (test2-hybrid), and its SAM 3 proposals & train, test & true & detection; VSI-Bench lists \\
+Lists from a detector (cls-31; IndoorDet-65-31k refine and & test & true & VSI-Bench, e.g.\ 69.9 / 62.7, 69.8 / 63.2 \\
+\quad threshold lists) & & & \\
+VGGT-SLAM lists \texttt{\_truescale}; SAM 3 list, true-scale arm & test & true & VSI-Bench, 3D evaluation \\
+Language-model SFT data (mix-v2-0, mix-v2-1, Exp1): ground-truth & train & true & every SFT run \\
+\quad and detector boxes & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
