@@ -1,0 +1,24 @@
+% Main document for the submission fragments. Build: ./build.sh (once) | ./build.sh watch (rebuild on save) | ./build.sh one <fragment>
+% Add a fragment: create <name>.tex (no preamble) and add \input{<name>} below. Add any package it needs to the preamble here.
+\documentclass[11pt]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
+\title{3D scene language: working notes}
+\date{\today}
+\begin{document}
+\maketitle
+\tableofcontents
+\clearpage
+\input{data}
+\input{sam3}
+\input{vggt-det-arch}
+\input{vggt-det-training-data}
+\input{agent}
+\input{claude}
+\end{document}
