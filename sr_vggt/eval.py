@@ -105,7 +105,7 @@ def load_model(ea: EvalArguments, va: VggtArguments, processor, dtype):
 def main() -> None:
     ea, va = HfArgumentParser((EvalArguments, VggtArguments)).parse_args_into_dataclasses()
     dtype = {"bf16": torch.bfloat16, "fp32": torch.float32}[ea.dtype]
-    reasoning = va.prompt in ("reason", "reason_plain")
+    reasoning = va.prompt in ("reason", "reason_plain", "reason_scene")
     if reasoning:
         from .reasoning import parse_answer
     frame_ph, camera_ph = va.placeholder_texts()

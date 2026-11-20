@@ -47,6 +47,10 @@ class DataArguments:
     max_seq_len: int = field(default=0, metadata={"help": "Drop rows longer than this (0 = keep all)."})
     checkpoint_above: int = field(default=0, metadata={"help": "With --gradient_checkpointing True: checkpoint "
                                   "only micro-batches longer than this many tokens (0 = every micro-batch)."})
+    checkpoint_tiers: str = field(default="", metadata={"help": "With --gradient_checkpointing True, instead of "
+                                  "--checkpoint_above: 'TOKENS:LAYERS,...' = micro-batches of up to TOKENS tokens run "
+                                  "LAYERS LLM layers without checkpointing ('all' = every layer); longer than the "
+                                  "last tier: every layer checkpointed. E.g. '4700:all,8500:16,14000:8'."})
     init_from_checkpoint: str = field(default="", metadata={"help": "First window only: start from "
                                       "this checkpoint's adapter (LoRA + vggt_projector), fresh optimizer."})
 
@@ -80,6 +84,7 @@ class SaveBeforeTimeout(TrainerCallback):
 
 class CpuBatchSFTTrainer(SFTTrainer):
     checkpoint_above = 0  # set by main() from --checkpoint_above
+    checkpoint_tiers = ()  # set by main() from --checkpoint_tiers: ((max tokens, layers | "all"), ...) ascending
 
     def training_step(self, model, inputs, *args, **kwargs):
         """Gradient checkpointing per micro-batch: only for sequences over checkpoint_above tokens.
@@ -87,7 +92,18 @@ class CpuBatchSFTTrainer(SFTTrainer):
         A few rows (long scene lists / CoT) are ~4x the typical length and OOM without checkpointing;
         the rest train ~17% faster without it. The Trainer's gradient_checkpointing_enable() has set
         each layer's checkpoint function; here we only flip the layers' flag. The gradients are the same."""
-        if self.checkpoint_above and self.args.gradient_checkpointing:
+        if self.checkpoint_tiers and self.args.gradient_checkpointing:
+            # Partial checkpointing by length: the longer the micro-batch, the fewer LLM layers keep their
+            # activations (memory per un-checkpointed layer grows with the tokens). Same gradients.
+            if not hasattr(self, "_llm_layers"):
+                layers = [m for m in model.modules() if isinstance(m, GradientCheckpointingLayer)]
+                self._llm_layers = [m for m in layers if any(p.requires_grad for p in m.parameters())]
+            n, tokens = len(self._llm_layers), inputs["input_ids"].numel()
+            keep = next((n if k == "all" else min(int(k), n) for t, k in self.checkpoint_tiers if tokens <= t), 0)
+            off = {round(i * n / keep) for i in range(keep)}  # spread evenly over the depth
+            for i, m in enumerate(self._llm_layers):
+                m.gradient_checkpointing = i not in off
+        elif self.checkpoint_above and self.args.gradient_checkpointing:
             if not hasattr(self, "_ckpt_layers"):
                 self._ckpt_layers = [m for m in model.modules() if isinstance(m, GradientCheckpointingLayer)]
             long = inputs["input_ids"].shape[1] > self.checkpoint_above
@@ -193,8 +209,13 @@ def main() -> None:
         callbacks=[SaveBeforeTimeout()],
     )
     trainer.checkpoint_above = data_args.checkpoint_above
+    if data_args.checkpoint_tiers:
+        trainer.checkpoint_tiers = tuple(sorted((int(t), k) for t, k in
+                                                (x.split(":") for x in data_args.checkpoint_tiers.split(","))))
     if training_args.gradient_checkpointing:
-        logging.info("gradient checkpointing: %s", f"micro-batches over {data_args.checkpoint_above} tokens"
+        logging.info("gradient checkpointing: %s",
+                     f"tiers (max tokens, un-checkpointed LLM layers) {trainer.checkpoint_tiers}"
+                     if trainer.checkpoint_tiers else f"micro-batches over {data_args.checkpoint_above} tokens"
                      if data_args.checkpoint_above else "every micro-batch")
     trainable = sum(p.numel() for p in trainer.model.parameters() if p.requires_grad)
     total = sum(p.numel() for p in trainer.model.parameters())

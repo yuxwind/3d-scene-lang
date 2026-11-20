@@ -36,6 +36,12 @@ PLAIN_SYSTEM_PROMPT = ("You are a spatial reasoning assistant. You are given the
                        "\"bbox_3d\": [x, y, z, w, d, h]} in metres, origin at the first frame's camera, z up, "
                        "then reason step by step. After thinking, finish with 'Answer: <answer>'.")
 
+# --prompt reason_scene (no VGGT branch): the video + a given <scene> list in the user turn (plain's input);
+# only the reasoning goes in the thinking block (data/reason190k_videoscene_think/build.py).
+SCENE_SYSTEM_PROMPT = ("You are a spatial reasoning assistant. You are shown 3D scene context and the RGB frames "
+                       "of a scene. Answer the question about the scene. While thinking, reason step by step "
+                       "from the given 3D scene. After thinking, finish with 'Answer: <answer>'.")
+
 
 def parse_answer(text: str) -> str:
     """Text after the last line starting with 'Answer:'; the whole text if there is none."""

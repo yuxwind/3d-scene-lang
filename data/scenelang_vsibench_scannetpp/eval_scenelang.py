@@ -130,9 +130,11 @@ ap.add_argument("--prompt", choices=["basic", "full", "simple1", "simple2", "sim
                      "; rvs_question / rvs_all: the sr-rvs training turn (data/reason190k_videoscene/build.py) with the "
                      "objects named in the question / all objects, as upright axis-aligned [x, y, z, w, d, h] boxes")
 ap.add_argument("--adapter", help="LoRA adapter directory (e.g. an sr_vggt --arch none checkpoint) applied on top of --model")
-ap.add_argument("--system", choices=["none", "short", "scene"], default="none",
+ap.add_argument("--system", choices=["none", "short", "scene", "reason_scene"], default="none",
                 help="short: sr_vggt's training system prompt (data.py _SHORT_SYSTEM), for --adapter runs; "
-                     "scene: its scene-only one (data.py _SCENE_SYSTEM, data/reason190k_scene)")
+                     "scene: its scene-only one (data.py _SCENE_SYSTEM, data/reason190k_scene); "
+                     "reason_scene: the CoT one (reasoning.py SCENE_SYSTEM_PROMPT, --prompt reason_scene runs: "
+                     "use with --thinking, --prompt rvs_question and a long --max_new_tokens)")
 ap.add_argument("--types", help="comma-separated question-type prefixes: run only those rows")
 ap.add_argument("--num_shards", type=int, default=1)
 ap.add_argument("--shard_index", type=int, default=0)
@@ -154,13 +156,13 @@ NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
 def final_answer(r):
     """With a long --max_new_tokens the model may reason first: keep its last option letter or number."""
     p = r["prediction"]
-    m = re.findall(r"Answer:\s*\**\s*([^\n]+)", p)  # --prompt full asks for a final 'Answer: ...' line
-    if m:
-        p = m[-1]
     if "</think>" in p:  # thinking mode: only the text after the thinking counts
         p = p.split("</think>")[-1]
     elif r.get("thinking"):  # cut off while still thinking: no answer
         p = ""
+    m = re.findall(r"Answer:\s*\**\s*([^\n]+)", p)  # --prompt full asks for a final 'Answer: ...' line
+    if m:
+        p = m[-1]
     if r["question_type"] in MCA_QUESTION_TYPES:
         m = LETTER.findall(p)
     else:
@@ -284,7 +286,8 @@ with preds_path.open("a") as fout:
         msgs = [{"role": "user", "content": content}]
         if args.system != "none":
             from sr_vggt.data import _SCENE_SYSTEM, _SHORT_SYSTEM
-            sys_text = _SHORT_SYSTEM if args.system == "short" else _SCENE_SYSTEM
+            from sr_vggt.reasoning import SCENE_SYSTEM_PROMPT
+            sys_text = {"short": _SHORT_SYSTEM, "scene": _SCENE_SYSTEM, "reason_scene": SCENE_SYSTEM_PROMPT}[args.system]
             msgs.insert(0, {"role": "system", "content": [{"type": "text", "text": sys_text}]})
         text = processor.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True,
                                              enable_thinking=args.thinking)

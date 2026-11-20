@@ -442,7 +442,7 @@ ARCHS = ("perceiver", "spatialstack", "vlm3r", "none")  # none: plain Qwen3-VL, 
 class VggtArguments:
     # --- architecture / prompt ---
     arch: str = field(default="perceiver", metadata={"help": f"One of {ARCHS}."})
-    prompt: str = field(default="clean", metadata={"help": "clean | text256 | plain | reason | reason_plain (data.py)."})
+    prompt: str = field(default="clean", metadata={"help": "clean | text256 | plain | reason | reason_plain | reason_scene (data.py)."})
     # --- VGGT backbone and what it sees (data.py) ---
     vggt_backbone: str = field(default="omega", metadata={"help": "omega | vggt1b"})
     vggt_repo: str = field(default="facebook/VGGT-Omega")

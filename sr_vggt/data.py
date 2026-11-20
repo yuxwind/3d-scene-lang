@@ -106,12 +106,14 @@ _TEXT256_SYSTEM = ("You are a spatial reasoning assistant. You are given three i
 #   reason   text256 + reasoning-format instructions (reasoning.py)
 #   reason_plain  no placeholders, video-only reasoning instructions, thinking on (Qwen3.5: scene +
 #            reasoning inside its native <think> block; data/reason190k_think/build.py)
-PROMPTS = ("text256", "clean", "plain", "reason", "reason_plain")
+#   reason_scene  plain's input (video + the <scene> list given in the user turn), thinking on: reasoning inside
+#            <think>, then "Answer: X" (data/reason190k_videoscene_think/build.py)
+PROMPTS = ("text256", "clean", "plain", "reason", "reason_plain", "reason_scene")
 
 
 def thinking(prompt: str) -> bool:
     """enable_thinking for the chat template (Qwen3.5; Qwen3-VL ignores it)."""
-    return prompt == "reason_plain"
+    return prompt in ("reason_plain", "reason_scene")
 
 
 def system_prompt(prompt: str) -> str:
@@ -121,6 +123,9 @@ def system_prompt(prompt: str) -> str:
     if prompt == "reason_plain":
         from .reasoning import PLAIN_SYSTEM_PROMPT
         return PLAIN_SYSTEM_PROMPT
+    if prompt == "reason_scene":
+        from .reasoning import SCENE_SYSTEM_PROMPT
+        return SCENE_SYSTEM_PROMPT
     return _TEXT256_SYSTEM if prompt == "text256" else _SHORT_SYSTEM
 
 
@@ -157,7 +162,7 @@ def task_messages(example, frames, prompt: str, frame_placeholder_text: str,
     elif prompt == "clean":
         head = [{"type": "text", "text": frame_placeholder_text + camera_placeholder_text},
                 {"type": "text", "text": "This is the 3D scene context.\n"}]
-    elif prompt == "plain":
+    elif prompt in ("plain", "reason_scene"):
         head = [{"type": "text", "text": "This is the 3D scene context.\n"}]
     elif prompt == "reason_plain":
         head = []  # the human turn's own "These are frames of a video." introduces the video
