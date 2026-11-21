@@ -20,3 +20,4 @@ Every script that reads results, scores, logs or makes plots lives here. The scr
 | `vsibench_scores.py` | VSI-Bench table (n, overall, 8 tasks) from `scores*.json` (`{method: {...}}` or `{'subset / full|debiased / scene': {...}}`). Drops baselines by default (`--exclude`), `--subset all`, `--csv`. |
 | `vsibench_score_answers.py` | Score raw answer files (`<variant>/out/*.json`) against GT rows (`--gt`): full + debiased overall and per task. For runs without `scores*.json` (e.g. gandalf `claude_nocode_s3`). |
 | `run_status.py` | Training run dirs: checkpoints (count, first..last), DONE, final weights (size + fingerprint for cross-host comparison), step/max_steps, last loss. |
+| `layout.py` | Markdown layout of the project on a host (code, data, base models, runs with final-weights/progress, logs, envs) from `site.env` + `--extra`. Feeds the vault's `Layouts/<host>.md`. |
