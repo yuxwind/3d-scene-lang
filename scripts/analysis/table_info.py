@@ -5,7 +5,7 @@ usage: table_info.py FILE [FILE ...] [--counts COL ...] [--max-card 30] [--sampl
   --counts: always print value counts for these columns (top 30).
 needs pandas (+ pyarrow for parquet): run with the training env (on jz the runner uses python3; see README).
 """
-import argparse
+import argparse, glob
 import pandas as pd
 
 ap = argparse.ArgumentParser()
@@ -14,7 +14,7 @@ ap.add_argument("--counts", nargs="*", default=[])
 ap.add_argument("--max-card", type=int, default=30)
 ap.add_argument("--sample", type=int, default=1)
 a = ap.parse_args()
-for f in a.files:
+for f in [g for x in a.files for g in (sorted(glob.glob(x)) or [x])]:
     df = pd.read_parquet(f) if f.endswith(".parquet") else pd.read_json(f, lines=True) if f.endswith(".jsonl") else pd.read_csv(f)
     print(f"== {f}: {len(df)} rows x {df.shape[1]} cols")
     for c in df.columns:
