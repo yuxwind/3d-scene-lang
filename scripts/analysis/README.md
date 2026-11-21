@@ -19,3 +19,4 @@ Every script that reads results, scores, logs or makes plots lives here. The scr
 | `peek.py` | First lines (or `--grep` matches) of text files: docstrings, markdown summaries, logs. Capped. |
 | `vsibench_scores.py` | VSI-Bench table (n, overall, 8 tasks) from `scores*.json` (`{method: {...}}` or `{'subset / full|debiased / scene': {...}}`). Drops baselines by default (`--exclude`), `--subset all`, `--csv`. |
 | `vsibench_score_answers.py` | Score raw answer files (`<variant>/out/*.json`) against GT rows (`--gt`): full + debiased overall and per task. For runs without `scores*.json` (e.g. gandalf `claude_nocode_s3`). |
+| `run_status.py` | Training run dirs: checkpoints (count, first..last), DONE, final weights (size + fingerprint for cross-host comparison), step/max_steps, last loss. |
