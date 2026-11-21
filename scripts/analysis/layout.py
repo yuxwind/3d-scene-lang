@@ -61,10 +61,19 @@ def main():
         ms = sorted(os.path.basename(m).replace("models--", "").replace("--", "/") for m in glob.glob(os.path.join(hf, "hub", "models--*")))
         print(f"\n## Base models in HF cache\n" + ("\n".join(f"- `{m}`" for m in ms) or "- none"))
     roots = [E("SR_OUTPUT_ROOT")] + [os.path.expandvars(x.partition("=")[2]) for x in a.extra]
+    seen = set()
     for root in [r for r in roots if exists(r)]:
+        others = sorted(d for d in glob.glob(os.path.join(root, "*")) if os.path.isdir(d))
         runs = sorted(d for d in glob.glob(os.path.join(root, "*")) + glob.glob(os.path.join(root, "*", "sr_vggt_*"))
                       if os.path.isdir(d) and (glob.glob(os.path.join(d, "checkpoint-*")) or glob.glob(os.path.join(d, "*.safetensors"))
                                                or os.path.basename(d).startswith(("sr_vggt", "_smoke"))))
+        runs = [d for d in runs if os.path.realpath(d) not in seen]
+        seen.update(os.path.realpath(d) for d in runs)
+        rest = [d for d in others if os.path.realpath(d) not in seen and not any(os.path.realpath(r).startswith(os.path.realpath(d) + "/") for r in seen)]
+        if rest and root != E("SR_OUTPUT_ROOT"):
+            print(f"\n## Other folders under `{root}`\n\n| Folder | Size |\n|---|---|")
+            for d in rest:
+                print(f"| `{os.path.basename(d)}` | {du(d)} |")
         if not runs:
             continue
         print(f"\n## Runs under `{root}`\n\n| Run | Final weights | Checkpoints | Progress | Done | Size |\n|---|---|---|---|---|---|")
