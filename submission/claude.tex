@@ -54,3 +54,51 @@ VSI-Bench debiased (2,362) & 55.9 & 85.0 & $-29.1$ \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+% ReVSI (todo 2026.11.18 Exp2, item "claude (no code) + gt scene").
+% Sources: vggtdet_es56/runs/claude_nocode_s3 (build_revsi.py -> revsi_gt/batches, score_revsi.py; answers in revsi_gt/out),
+% data: /scr/xinyu/data/ReVSI (Hugging Face release; 64_frame/test-00000-of-00001.parquet, metadata/3d_annotation.json,
+% metadata/obj_visibility.json).
+\subsection{ReVSI}
+\label{sec:claude-revsi}
+
+\paragraph{Setup.}
+ReVSI rebuilds VSI-Bench-style questions from corrected 3D annotations of ARKitScenes, ScanNet, ScanNet++, 3RScan
+and MultiScan. We use its 64-frame subset: 6,616 questions on 380 scenes, in seven tasks (there is no appearance
+order task) and 13 question types. The scene list is ReVSI's own annotation (its scene frame, $z$ up), restricted to
+the objects visible in the 64 sampled frames, since ReVSI's 64-frame answers count only those; each box is given as
+centre, size and yaw, roll and pitch, as in the VSI-Bench run. Prompt, rules and batching are as in
+Section~\ref{sec:agent}: text only (no video), Claude Opus~5.5 sub-agents with only the Read and Write tools, one
+task per batch and at most one question per scene (367 batches). All 6,616 questions were answered, every batch
+with Read and Write only. Scores are accuracy (multiple choice) or MRA (numeric); the question types of a task are
+pooled, and ``Overall'' is the mean over the seven tasks.
+
+\paragraph{The ground-truth scene answers almost all of ReVSI.}
+Table~\ref{tab:claude-revsi} gives the result. With the ground-truth scene Claude reaches 93.7 (94.2 as the mean over
+the 13 question types). The five geometric tasks are at 99.6--100. Route planning reaches 88.2, much higher than
+on VSI-Bench (66.0 with Fable~5.2). Room size is the only weak task (68.4): the list holds only the objects seen in
+the 64 frames, so the floor area must be inferred from their extent; it is higher when the question allows several
+rooms (74.5) than for a single room (64.0). The score is even across the five source datasets (93.2--95.5).
+
+\begin{table}[t]
+\centering
+\caption{Claude Opus~5.5 without code, given the ground-truth scene as text (no video), on ReVSI (64-frame subset,
+6,616 questions). Accuracy (multiple choice) or MRA (numeric). Left: per task, with the number of questions;
+``Overall'' is the mean over the seven tasks. Right: per source dataset (mean over the seven tasks).}
+\label{tab:claude-revsi}
+\begin{tabular}{lrr@{\hspace{2.5em}}lrr}
+\toprule
+Task & $n$ & Score & Dataset & $n$ & Score \\
+\midrule
+Absolute distance  & 1,208 & 99.7  & ARKitScenes & 2,685 & 93.2 \\
+Counting           & 1,090 & 99.8  & ScanNet++   & 1,438 & 94.7 \\
+Relative direction & 1,332 & 100.0 & ScanNet     & 1,423 & 93.7 \\
+Relative distance  & 1,279 & 99.6  & MultiScan   &   537 & 95.5 \\
+Object size        & 1,126 & 100.0 & 3RScan      &   533 & 93.2 \\
+Room size          &   302 & 68.4  &             &       &      \\
+Route planning     &   279 & 88.2  &             &       &      \\
+\midrule
+Overall            & 6,616 & \textbf{93.7} & & & \\
+\bottomrule
+\end{tabular}
+\end{table}

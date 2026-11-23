@@ -1,0 +1,34 @@
+% Data locations (internal). Fragment for \input{paths}; needs \usepackage{booktabs} and \usepackage{url}.
+
+\section{Data locations}
+\label{sec:paths}
+
+\paragraph{SAM~3 + VGGT-SLAM boxes for VSI-Bench.}
+All files below are on the machine \texttt{gandalf}. Each list file holds all 5,130 VSI-Bench questions, one per line;
+each question carries the SAM~3 boxes of the objects it names (question-name prompts plus ``room door'' and
+``radiator''), box score $\geq 0.7$, in the frame of the first camera. Table~\ref{tab:paths-s3} gives the files.
+The list files are in \path{/scr/xinyu/projects/3d-scene-lang/data/scenelang_vsibench_slam/}.
+The raw per-scene output (VGGT-SLAM reconstructions, SAM~3 masks, and the boxes for each prompt variant; 119\,GB)
+is in \path{/scr/xinyu/projects/VGGT-SLAM/exps/vsibench_objects/all/}.
+
+\begin{table}[h]
+\centering
+\caption{SAM~3 + VGGT-SLAM box lists for VSI-Bench (machine \texttt{gandalf}, directory
+\path{/scr/xinyu/projects/3d-scene-lang/data/scenelang_vsibench_slam/}).}
+\label{tab:paths-s3}
+\small
+\begin{tabular}{llll}
+\toprule
+File & Scale & Inference rule & Used for \\
+\midrule
+\path{rows_s3q_roomdoor_radiator_all5130_full.jsonl}
+  & estimated (VGGT-SLAM) & list on every question & Claude Exp1-2-1, Exp1-2-2 \\
+\path{rows_s3q_roomdoor_radiator_gtscale_all5130_full.jsonl}
+  & real (ground-truth scale) & list on every question & Claude Exp1-1-1, Exp1-1-2 \\
+\path{rows_s3q_roomdoor_radiator_mixv2_all5130_full.jsonl}
+  & estimated (VGGT-SLAM) & mix-v2-1 & Qwen3.5-4B, ``S3 estimated'' \\
+\path{rows_s3q_roomdoor_radiator_gtscale_mixv2_all5130_full.jsonl}
+  & real (ground-truth scale) & mix-v2-1 & Qwen3.5-4B, ``S3 real'' \\
+\bottomrule
+\end{tabular}
+\end{table}
