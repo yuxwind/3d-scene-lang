@@ -6,7 +6,7 @@
 # shards are done.
 #   scripts/wukong/eval_q35vs_think_wukong.sh [<checkpoint dir>]      default: <run>/checkpoint-569
 source "$(dirname "$(readlink -f "$0")")/../exp_paths.sh"
-cd /home/student/xinyu/projects/3d-scene-lang
+cd "$(dirname "$(readlink -f "$0")")/../.."   # repo root of the clone this launcher is in (deployed by exp.py deploy)
 export SR_ROOT=$PWD
 source site.env
 source scripts/lib.sh

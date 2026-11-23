@@ -1,7 +1,8 @@
 #!/bin/bash
 # VSI-Bench (all 5,130 rows) eval of the video + GT-scene adapter, training-format prompt (rvs_question), 4 shards on GPUs 0-3.
 source "$(dirname "$(readlink -f "$0")")/../exp_paths.sh"
-cd /scr/xinyu/projects/3d-scene-lang
+cd "$(dirname "$(readlink -f "$0")")/../.."   # repo root of the clone this launcher is in (deployed by exp.py deploy)
+source site.env; [ -e runs ] || ln -s "$SR_OUTPUT_ROOT" runs   # runs/ -> SR_OUTPUT_ROOT (outputs stay in the old tree's runs/)
 export SR_ROOT=$PWD
 source scripts/lib.sh
 set +u; export PATH=/scr/xinyu/envs/sr_vggt/bin:$PATH HF_HOME=/scr/xinyu/hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1

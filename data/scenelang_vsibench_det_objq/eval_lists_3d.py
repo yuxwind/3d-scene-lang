@@ -9,7 +9,8 @@ desk -> table). Matching per scene and label, best score first, oriented IoU (bi
 Columns: AP and recall at IoU 0.25 / 0.5, precision of the whole list at IoU 0.25, recall with the centre within 0.5 m."""
 import json, glob, os, re, sys, collections, numpy as np
 from shapely.geometry import Polygon
-SL = '/scr/xinyu/projects/3d-scene-lang/'; S3 = '/scr/xinyu/projects/VGGT-SLAM/exps/vsibench_objects/all/'
+SL = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..') + '/'  # repo root (was the gandalf old tree)
+S3 = '/scr/xinyu/projects/VGGT-SLAM/exps/vsibench_objects/all/'
 SYN = {'trash can': 'trash bin', 'heater': 'radiator', 'whiteboard': 'blackboard', 'table lamp': 'lamp', 'exhaust fan': 'fan', 'washing machine': 'washer', 'desk': 'table'}
 can = lambda l: SYN.get(re.sub(r'\s+\d+$', '', l).lower(), re.sub(r'\s+\d+$', '', l).lower())
 GT, DS = collections.defaultdict(dict), {}

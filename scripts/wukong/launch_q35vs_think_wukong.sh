@@ -5,7 +5,7 @@
 # 37-38 GiB peak at the top of each tier; measurements in configs/novggt_qwen35_4b_reason190k_vs_think.env).
 # --dataloader_num_workers 16: with 8 workers per GPU the video decoding, not the GPU, set the pace.
 source "$(dirname "$(readlink -f "$0")")/../exp_paths.sh"
-cd /home/student/xinyu/projects/3d-scene-lang
+cd "$(dirname "$(readlink -f "$0")")/../.."   # repo root of the clone this launcher is in (deployed by exp.py deploy)
 export SR_ROOT=$PWD SLURM_JOB_ID=wukong SLURM_GPUS_ON_NODE=4 CUDA_VISIBLE_DEVICES=0,1,2,3
 source site.env
 # No transparent huge pages for this process tree (PR_SET_THP_DISABLE = prctl 41, inherited; numpy asks for them for

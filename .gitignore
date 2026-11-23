@@ -31,3 +31,4 @@ docs/*.pptx
 *.pt
 *.pth
 *.tar.gz
+/runs
