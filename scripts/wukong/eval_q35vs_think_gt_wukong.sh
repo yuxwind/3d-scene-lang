@@ -4,6 +4,7 @@
 # prompt rvs_question) + the CoT system prompt, thinking on, up to 8,192 new tokens. 12 shards over the 4 GPUs
 # (one process uses about 11 GB and half of a GPU). Rerun to resume; merges and scores when all shards are done.
 #   scripts/wukong/eval_q35vs_think_gt_wukong.sh [<checkpoint dir>]      default: <run>/checkpoint-569
+source "$(dirname "$(readlink -f "$0")")/../exp_paths.sh"
 cd /home/student/xinyu/projects/3d-scene-lang
 export SR_ROOT=$PWD
 source site.env
@@ -13,6 +14,7 @@ CKPT=${1:-${SR_OUTPUT_ROOT}/sr_vggt_novggt_qwen35_4b_reason190k_vs_think/checkpo
 OUT=${OUT:-$(dirname "${CKPT}")/eval_$(basename "${CKPT}")_gt_firstcam_${P:=rvs_question}}
 D=data/scenelang_vsibench_scannetpp
 NUM_SHARDS=${NUM_SHARDS:-12}
+exp_paths INPUT="${ROWS:-data/scenelang_vsibench_gt_firstcam/rows_all5130.jsonl}" INPUT="$CKPT" OUTPUT="$OUT" RESULT="$OUT/results*" GPUS=0,1,2,3
 mkdir -p "${OUT}"
 run() {  # extra args after the common ones
   python $D/eval_scenelang.py --rows "${ROWS:-data/scenelang_vsibench_gt_firstcam/rows_all5130.jsonl}" \

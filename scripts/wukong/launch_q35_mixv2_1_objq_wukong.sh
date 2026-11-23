@@ -6,7 +6,12 @@
 # 3.7k-token row, 37 GiB at 4.5k) and takes 1.22 s per typical row; checkpointing every layer peaks at 12 GiB and
 # takes 1.65 s. 99.2% of the rows are under 4.5k tokens; the longest (about 9k) stay checkpointed.
 # --dataloader_num_workers 16: with 8 workers per GPU the video decoding, not the GPU, set the pace.
+source "$(dirname "$(readlink -f "$0")")/../exp_paths.sh"
 cd /home/student/xinyu/projects/3d-scene-lang
+if [ -n "${EXP_DRYRUN:-}" ]; then source site.env
+  OUT=${OUT:-${SR_OUTPUT_ROOT}/sr_vggt_novggt_qwen35_4b_reason190k_mixv2_1_objq}
+  exp_paths INPUT=configs/novggt_qwen35_4b_reason190k_mixv2_1_objq.env OUTPUT="$OUT" RESULT="$OUT/checkpoint-*" GPUS=0,1,2,3
+fi
 # Wait until wukong GPUs 0-3 are free of other jobs (each under 6 GiB used, 10 checks in a row 60 s apart): another user's RL job
 # moves between 13 and 44 GiB per GPU, so starting beside it would make one of the two jobs run out of memory.
 ok=0; while [ $ok -lt 10 ]; do
