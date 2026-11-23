@@ -22,4 +22,5 @@ Every script that reads results, scores, logs or makes plots lives here. The scr
 | `run_status.py` | Training run dirs: checkpoints (count, first..last), DONE, final weights (size + fingerprint for cross-host comparison), step/max_steps, last loss. |
 | `layout.py` | Markdown layout of the project on a host (code, data, base models, runs with final-weights/progress, logs, envs) from `site.env` + `--extra`. Feeds the vault's `Layouts/<host>.md`. |
 | `table_info.py` | parquet/csv/jsonl summary: rows, columns + dtypes, value counts of low-cardinality columns, a sample row. Needs pandas. |
+| `qwen_eval_scores.py` | Sharded Qwen evals (`predictions_shard*.jsonl`, e.g. `runs/eval_q35vs_gandalf/*`): merge shards, score full + debiased (`--rows` gives the split) and 8 tasks with `sr_vggt.eval.score`. Needs the training env. Replaces `data/scenelang_vsibench_det_objq/cmp_eval.py`. |
 | `revsi_score_answers.py` | Score Claude no-code ReVSI answers (`out/*.json`) vs `rows.jsonl`: ReVSI protocol (7 tasks from 13 subtypes), `--by-dataset`; also sums the run's cost from `*.meta.json`. |
