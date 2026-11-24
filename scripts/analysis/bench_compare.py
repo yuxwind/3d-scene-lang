@@ -6,7 +6,7 @@ usage: bench_compare.py [--vsi JSONL] [--vsi-debiased PARQUET] [--revsi PARQUET]
 For each benchmark and question type: n (and debiased n for VSI-Bench), n per source dataset, scenes, question templates
 (words in >=40 % of that type's questions kept, the rest shown as "…"; top 3 with counts), two example questions, the
 number of options and an example option list, the answer-letter distribution (multiple choice) or numeric ground-truth
-quantiles (min/p25/median/p75/max), and words per question.
+quantiles (min/p25/median/p75/max), words per question, and for route planning the number of turns to fill in.
 prints: a compact table per benchmark; --json writes everything (for plots). Needs pandas (training env).
 """
 import argparse, collections, json, os, re
@@ -68,9 +68,16 @@ def summarize(df, name, scene_col, deb_ids=None):
             letters = collections.Counter(x[:1].upper() if re.match(r"^[A-Da-d]\b", x) else
                                           ("ABCD"[o.index(x)] if o and x in o else "?") for x, o in zip(gt, os_))
             e["answer_letters"] = dict(sorted(letters.items()))
-            e["answer_values"] = dict(collections.Counter(
-                (o["ABCD".index(x[:1].upper())] if re.match(r"^[A-Da-d]\b", x) and o and "ABCD".index(x[:1].upper()) < len(o) else x)
-                for x, o in zip(gt, os_)).most_common(6))
+            def val(x, o):
+                if re.match(r"^[A-Da-d]\b", x) and o and "ABCD".index(x[:1].upper()) < len(o):
+                    x = o["ABCD".index(x[:1].upper())]
+                return re.sub(r"^[A-D]\.\s*", "", x).strip().lower()
+            vals = collections.Counter(val(x, o) for x, o in zip(gt, os_))
+            e["answer_values"] = dict(vals.most_common(12))
+            e["answer_values_distinct"] = len(vals)
+        blanks = g["question"].str.count(r"\[please fill in\]")
+        if blanks.sum():
+            e["blanks"] = {int(k): int(v) for k, v in blanks.value_counts().sort_index().items()}
         else:
             v = pd.Series([num(x) for x in g["ground_truth"]]).dropna()
             e["gt"] = {q: round(float(v.quantile(p)), 2) for q, p in
