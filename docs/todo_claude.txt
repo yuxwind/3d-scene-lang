@@ -1,0 +1,211 @@
+Experiment board: scene language (Qwen3.5-4B) + 3D detector (VGG-T-Det)
+=======================================================================
+Shared by all machines. Edit the status line of an experiment when it changes; keep one entry per experiment.
+Last update: 2026-11-15 05:50 CST (gandalf)
+
+Machines
+--------
+gandalf   4 x 96 GB (GPUs 0-3 ours; 4-7 other users)   repos /scr/xinyu/projects/{3d-scene-lang, vggtdet_es56}
+wukong    4 x 46 GB                                     repo  /scr/xinyu/projects/3d-scene-lang, runs in /scr/xinyu/runs/3d-scene-lang
+                                                        detector copy (inference only): /scr/xinyu/projects/vggtdet_es56_gandalf
+
+DEFAULT SETTING (decided by Xinyu, 14 Nov 2026): mix-v2-1 is the default Qwen3.5-4B SFT setting from now on.
+  train     data/reason190k_mixv2_1_answer.jsonl.gz, configs/novggt_qwen35_4b_reason190k_mixv2_1.env
+            (fully / partially covered rows: 1/3 GT boxes with score 1.0, 2/3 detector boxes; other rows and all
+            appearance-order / route-planning / room-size rows: video only; score per box; prompt v2)
+  build     data/reason190k_videoscene_det/build_mix.py --cover --prompt_v2 --p_gt 0.3333
+            --video_only_types appearance_order,route_planning,absolute_size_room
+  test      rows data/scenelang_vsibench_det_esl31/rows_det_all5130_mixv2.jsonl, V2=1 (eval_scenelang.py --prompt_v2)
+  baseline  checkpoint runs/sr_vggt_novggt_qwen35_4b_reason190k_mixv2_1/checkpoint-569 (gandalf): 69.8 / 62.6
+  New experiments change one thing relative to this setting and are compared with 69.8 / 62.6.
+
+Terms
+-----
+cls-31 / ESL31     the 31 classes of the current detector (docs/vsibench_esl31_label_mapping.txt)
+coverage           per question, from the objects it names: fully / partially / zero covered by cls-31, or no object named
+detector scene     VGG-T-Det (ESL31, ScanNet-trained, epoch 64) boxes over the per-class score thresholds
+VSI-Bench score    mean over tasks, all 5,130 questions, unless "q-avg" (mean over questions) is stated
+
+
+1. RUNNING
+----------
+[R3] Language-model ablations on gandalf (mix-v2-1 unless noted, scene on all 5,130 questions; predictions in
+     runs/eval_q35vs_gandalf/<name>_rvs_question; rows in data/scenelang_vsibench_slam/):
+       SAM 3 list, centre / size / score table (mixv2_1_s3abl_c{p,g}_z{p,g}_s{p,1}): all eight cells DONE, see F7.
+       GT-only model (..._reason190k_vs ckpt-569) on the SAM 3 list: gtonly_s3abl_cg_zg DONE (F7); gtonly_s3abl_cp_zp
+         (as predicted) running, 326 / 5,130 at 07:45 CST 15 Nov (was paused until then).
+     The machine is CPU-bound (load > 750): run at most 3 evaluations at once.
+[R4] VGG-T-Det with SAM 3 + VGGT-SLAM queries (gandalf, VGGT-SLAM/exps/vsibench_objects): VGGT-SLAM (submaps of 64, 100
+     keyframes kept) on the detector's 958 ScanNet training scenes -> train/slam_<scene>.npz, 565 of 958 done at 07:45 CST 15 Nov (12 workers). Next: SAM 3 on them, then the model change (design in T9).
+
+
+2. QUEUED
+---------
+(none)
+
+
+3. TODO
+-------
+[T1] DONE 14 Nov (section 4; predictions runs/eval_q35vs_gandalf/mixv2_{0,1}_det_rvs_question). Still open: scene on
+     fully + partially covered, and rule T1b.   Was: Evaluate mix-v2-0 and mix-v2-1 on VSI-Bench
+     rows       data/scenelang_vsibench_det_esl31/rows_det_all5130_mixv2.jsonl   (detector boxes + use_scene per row:
+                scene on the 2,305 fully covered questions outside the three video-only tasks, video only on 2,825)
+     command    V2=1 ADAPTER=<checkpoint-569> NAME=<name> ROWS=<rows> bash scripts/gandalf/launch_eval_q35vs_gt.sh
+                (eval_scenelang.py --prompt_v2; then --merge). Also run with use_scene on fully + partially covered.
+     compare    video only 69.4, mixed + detector 67.4, score-aware 67.6 (section 4)
+
+[T1b] Inference rule to test with T1: use the scene only when every object named in the question has a detector box
+     (needs no GT). Reason: finding F1 below; on fully covered scene-task questions it turns -1.1 vs video into about +0.5
+     with the score-aware model.
+
+[T2] ScanNet++ camera poses for the other 597 Reason-190K scenes
+     blocked    upload of scannetpp_cam_pose_intrinsic.tar to gandalf stopped at 12.2 GB (266 of 905 scenes, no DONE file)
+     then       build_scannetpp_inputs.py reason190k -> detector on wukong -> rebuild the mix-v2 files (more scene rows)
+
+[T3] Honest training detections: the detector has seen the Reason-190K ScanNet scenes, so its training boxes are
+     better than at test time (width/depth orientation right 93% vs 60%). Train the detector on half of the scenes,
+     predict the other half, swap; rebuild the language model's training scenes from those.
+
+[T4] After R2: detector results with VSI63 on VSI-Bench (ScanNet 88 / ARKitScenes 150 / ScanNet++ 50 scenes) and on
+     Reason-190K; tune thresholds per dataset; rebuild detector scenes with 63 classes (covers 98% of questions).
+
+[T5] ScanNet++ boxes for detector training (63 classes, same axis convention; adds ceiling light, cutting board,
+     paper bag, shoe rack, coat rack). Needs T2 poses for the training scenes.
+
+[T6] More detector data: 3RScan and Matterport3D (EmbodiedScan boxes; access forms to be signed by Xinyu);
+     1,669 further EmbodiedScan ARKitScenes scenes not on gandalf.
+
+[T8] Object points from VGGT / VGGT-SLAM + 2D boxes (gandalf: /scr/xinyu/projects/VGGT-SLAM/exps/vsibench_objects, env /scr/xinyu/envs/vggt_slam)
+     done      8 scenes (ScanNet 22-188 s, ScanNet++ 56-434 s), page https://claude.ai/artifact/AMb775xgPCnkwebDgi7XF8,
+               settings sweep in explore_results.jsonl (finding F2).
+     next      (a) per-window detection: run VGG-T-Det on windows of 64 frames (25-50 s) instead of one pass over the whole
+               video, merge boxes across windows; (b) queries seeded from 2D-box segments; (c) real 2D boxes: SAM 3 weights
+               are gated on Hugging Face (facebook/sam3), licence to be accepted by Xinyu.
+
+[T9] VGG-T-Det refinement of SAM 3 + VGGT-SLAM objects (decided with Xinyu, 15 Nov): queries = at least 5 points per
+     SAM 3 + SLAM object (more near its centre / denser parts), each carrying the object's label; centre and size regressed
+     as now; one new output "keep the label or not", target = refined box overlaps a GT box of that label (IoU >= 0.25);
+     at test one box per object (best keep score) -> labels and counts from SAM 3, geometry from VGG-T-Det. Placement of the
+     points uses the true scale and GT first-camera pose, as the detector already does (avg_distance). Needs R4.
+     Note: the current matcher (Hungarian on class prob + 2 x GIoU, then up to 5 extra queries per GT with GIoU > 0.1) ties
+     a query to whichever GT its box fits; for these queries the target should stay with the query's own object.
+
+[T10] SAM 3 + SLAM object list: evaluate the fixed version (question-name prompts + cross-name merge, all/s3qbox_*.json)
+     on VSI-Bench; prompt with both names of a synonym pair (heater AND radiator); stricter merge for doors (3.7 boxes per
+     GT door) and windows; denser frames for ScanNet++ (0.3-0.7 fps now); ceiling lights (39% recall).
+
+[T7] Curriculum (optional, after T1): continue the better mix-v2 model on detector-only scenes.
+
+
+4. DONE (VSI-Bench, all 5,130, mean over tasks; full / debiased)
+----------------------------------------------------------------
+model (gandalf runs/)                               scene at test          score
+video only  sr_vggt_novggt_qwen35_4b ckpt-743       none                   69.4 / 63.7
+GT-only     ..._reason190k_vs ckpt-569              full GT                82.4 / 80.3
+                                                    GT, cls-31 only        72.7 / 68.7
+mixed       ..._reason190k_vs_mixdet ckpt-569       full GT                82.2 / 79.6
+(50% GT, 50% detector on ScanNet + ARKitScenes)     GT, cls-31 only        77.4 / 73.5
+                                                    detector               67.4 / 60.6
+score-aware ..._reason190k_vs_mixdet_score ckpt-569 full GT                82.1 / 80.1
+(mixed + score per box)                             GT, cls-31 only        75.8 / 71.9
+                                                    detector               67.6 / 60.2
+mix-v2-0    ..._reason190k_mixv2_0 ckpt-569          detector on 2,305 q.   69.6 / 62.7
+(detector or video only, no GT; trained on wukong,   (fully covered, scene tasks), video only on 2,825; prompt v2
+ train loss 0.3812; copy on gandalf runs/)           scene questions 72.7 (video-only model 72.1), others 68.0 (68.4)
+mix-v2-1    ..._reason190k_mixv2_1 ckpt-569          same                   69.8 / 62.6
+(1/3 GT, 2/3 detector; train loss 0.3645)            scene questions 73.4, others 67.9
+  mix-v2 data: fully / partially covered rows get video + detector scene, all other rows and every appearance-order /
+  route-planning / room-size row are video only; score per box, prompt "Trust each box according to its score" /
+  "No 3D scene is given: answer from the video alone."  v2-0: detector 84,899 | video 60,748 rows; v2-1: detector 56,657 |
+  GT (score 1.0) 28,242 | video 60,748.  Files data/reason190k_mixv2_{0,1}_answer.jsonl.gz, configs/..._mixv2_{0,1}.env,
+  launch scripts/wukong/launch_q35_mixv2_0_wukong.sh, scripts/gandalf/launch_q35_mixv2_1_gandalf.sh.
+Claude, no code (oracle)                            full GT                88.7 / 88.0
+                                                    GT, cls-31 only        77.5 / 74.2
+
+F3. VGGT-SLAM boxes on all VSI-Bench scenes (14 Nov; gandalf /scr/xinyu/projects/VGGT-SLAM/exps/vsibench_objects: slambox.py,
+slambox_report.py, all/; rows data/scenelang_vsibench_slam/). Submaps of 64 + loop closure, 287 scenes, 2D boxes are ORACLE
+(GT 3D box projected with GT pose) -> upper bound for a 2D detector; frame (floor / walls) and scale estimated without GT.
+  boxes (best 5 views; 2,692 GT objects of cls-31): IoU>=0.25 30% with the true scale, 18% with the estimated scale; IoU>=0.5 3% / 1.5%;
+    wall-aligned min-max = smallest-footprint box; convex-hull rectangle worse (20% / 12%). Scale from class size priors: median error
+    14%. Floor direction wrong by > 10 deg in 40 of 287 scenes (ARKitScenes videos are stored rotated). Score: AUC 0.73, mostly < 0.5.
+  mix-v2-1 on VSI-Bench (full / debiased):  detector 69.8 / 62.6 | SLAM cls-31 boxes on 2,305 q. 69.8 / 63.1 (true scale 70.2 / 63.6)
+    | SLAM boxes of all objects on all 5,130 q. 70.1 / 63.5 (true scale 70.9 / 64.4) | GT cls-31 on 2,305 q. 74.8 / 69.8
+    | full GT on all 5,130 q. 77.3 / 73.9.
+  mix-v2-1 uses GT boxes much less than the GT-only model: on the 2,305 scene questions with GT boxes 83.2 vs 96.0
+    (abs. distance 67.4 vs 91.8, rel. direction 74.6 vs 98.1; counting and size equal at 97-99); full GT on all questions 77.3 vs 82.4.
+
+F4. SAM 3 + VGGT-SLAM boxes, no GT in the prediction (14-15 Nov; gandalf VGGT-SLAM/exps/vsibench_objects: sam3_run.py, sam3box.py,
+s3_report.py, all/; rows data/scenelang_vsibench_slam/rows_sam3_all5130_{full,mixv2}.jsonl). SAM 3 (facebook/sam3, token on gandalf)
+on up to 100 keyframes x 65 label prompts, masks lifted through the SLAM points, merged in 3D, box from the best 5 views,
+scale from class size priors (median error 12%), 287 scenes, 270 s per scene for SAM 3 (6 GB).
+  boxes vs GT (3,194 objects): found within 0.5 m 78% (true scale) / 69% (estimated); IoU>=0.25 recall 39% / 31%; IoU>=0.5 12% / 9%;
+    precision of boxes with score >= 0.7 at IoU>=0.25 34% / 27%; object count per label equals GT in 49%, within one in 81%.
+  mix-v2-1 on VSI-Bench (full / debiased): scene on all 5,130 q. 68.6 / 62.3; scene on the 2,305 q. 68.7 / 62.4
+    (detector 69.8 / 62.6, oracle-2D SLAM boxes 70.1 / 63.5, video only 69.4 / 63.7). 42 boxes per row on average.
+  caveat: ScanNet++ / ARKitScenes inputs were 120 frames per scene (0.3-0.7 fps on long ScanNet++ videos); denser frames not tried yet.
+
+F5. What the language model needs from boxes (mix-v2-1, all 5,130 q., one box per GT object from oracle 2D boxes, true scale;
+full / debiased; "low" = calibrated score, mostly < 0.5):
+  centre pred, size pred: low 70.9 / 64.4, score 1.0 71.7 / 67.1      centre GT, size pred: low 71.1 / 64.6, 1.0 72.3 / 68.0
+  centre pred, size GT:   low 72.0 / 66.2, score 1.0 76.1 / 72.0      centre GT, size GT:   low 72.3 / 66.3, 1.0 77.3 / 73.9
+  -> with a correct object list: score 1.0 lifts counting 78 -> 98; size matters far more than centre (+4.4 vs +0.6 at score 1.0);
+     score 1.0 with wrong sizes drops object size 76.7 -> 58.3. Order of importance: object list > size > centre.
+F6. SAM 3 + SLAM object list (boxes with score >= 0.7, labels named in each scene's questions, 3,194 GT objects; s3q_stats.py):
+  recall 73.7%, precision 65.3%, count per (scene, label) exact 47.3%, within one 82.4%, too many 28.9%, too few 23.7%
+    (first version: precision 59.4%, exact 44.4%; cross-name merge table = desk gave most of the gain).
+  labels are right when an object is found; the errors are missing objects and extras. Doors 3.7 boxes per GT door, windows 1.4 per 0.9;
+    "whiteboard" 85% recall (0% as "blackboard"), but "heater" 11% (39% as "radiator"); ceiling light 39%.
+  counting questions: boxes of the asked label too few 37%, right 39%, too many 24%. With the first version: right count
+    -> mix-v2-1 88.8 vs video 78.6; too few 70.5 vs 70.9; too many 55.4 vs 71.4.
+  alignment (IoU >= 0.25 of all GT): as predicted 28.6%, true scale 36.3%, rigid ICP only 29.7%, true scale + ICP 44.9%;
+    centre error median 0.25 -> 0.15 m; size unaffected (about 15% short in x, y; 40% of volumes within 0.67-1.5x).
+  ablation on mix-v2-1, all q.: as predicted 68.6 / 62.3; all scores 1.0: 66.7 / 61.4 (counting 72.0 -> 62.8);
+    GT centre on matched boxes: 68.8 / 62.4.
+  cls-31 detector boxes on the same scenes, same matching: recall IoU >= 0.25 28.8% (ScanNet 44.6%, ARKitScenes 17.2%,
+    ScanNet++ 16.2%), count exact 33%, too few 46%.  SAM 3 + SLAM, 31 classes: 34.1% (estimated scale) / 43.9% (true scale).
+
+Detector scene vs video only by coverage (mixed model, q-avg): fully covered 70.3 vs 71.3, partially 68.7 vs 71.5,
+zero covered 62.9 vs 67.5, no object named 69.2 vs 71.8. With GT boxes fully covered reaches 90.0.
+cls-31 coverage of questions: VSI-Bench 52.1% fully / 34.9% partially / 6.9% zero / 6.1% none named;
+Reason-190K 50.7% / 38.2% / 9.1% / 2.0%.
+
+D1. VSI63 detector (63 classes; ScanNet + ARKitScenes EmbodiedScan boxes; first-camera axis convention; 20 epochs from
+cls-31 epoch 64; vggtdet_es56 runs/vsi63_ft_4gpu/epoch_20.pth) - finished 22:20 CST 13 Nov, NOT better than cls-31:
+  mAP@0.25 on EmbodiedScan val: ScanNet old31 0.467 (cls-31 model about 0.53), new32 0.121; ARKitScenes old31 0.127, new32 0.082.
+  new classes learned: stove 0.98, washer 0.65, closet 0.62, dishwasher 0.33, towel / basket 0.11; all small objects 0.
+  88 VSI-Bench ScanNet scenes: width/depth orientation right 73% (cls-31: 66%), GT boxes found within 0.5 m 63% (cls-31: 73%).
+  -> keep cls-31 for detector scenes; next: same run without the axis change, and per-window / segment-seeded queries (T8).
+
+F1. Where the detector scene beats video only (score-aware model, 2,305 fully covered questions outside appearance
+order / route / room size, q-avg; analysis script: data/scenelang_vsibench_det_esl31/analyze_score_vs_video.py):
+  accurate boxes help: centre error < 0.15 m +4.1, 0.15-0.3 m +1.9, 0.3-1 m -1.4, > 1 m or missing -5.1;
+    object size with longest-side error < 10%: 93.4 vs 86.6 video (+6.7), > 25%: 35.6 vs 53.7 (-18.1);
+    counting with the right number of boxes: 87.7 vs 81.5 (+6.2), mixed model 97.6.
+  score: lowest named-box score 0.7-0.9: +5.0 (ScanNet +8.7), >= 0.9: +0.5, 0.5-0.7: -1.8, < 0.5: +1.1;
+    absolute distance with all named objects detected: +4 to +15.
+  main loss: in 995 of the 2,305 questions a named object has no detector box: 62.1 vs 65.8 video (-3.7).
+  the score tracks box quality only loosely: boxes within 0.3 m of GT: 58% (<0.5), 51% (0.5-0.7), 67% (0.7-0.9), 83% (>=0.9).
+F2. VGGT vs VGGT-SLAM 2.0 for object points (oracle 2D boxes; share of named objects within 0.3 m of GT, 4 scenes of 138-434 s):
+  plain VGGT, one pass: 64 frames best (7 s, 10 GB); 128 frames no better (18.5 GB); fails on multi-room videos over ~3 min.
+  VGGT-SLAM (6-8 GB): default submaps of 16 are unstable (0% on ScanNet scene0645_00); submaps of 32-64 and loop closure
+    are needed (70%); higher frame rate helps long ScanNet++ videos (5 fps 64%, 2.5 fps 52%, 1.25 fps 10%).
+  windows of 64 frames reconstructed separately are the most reliable (cameras 5-20 cm from GT even on the 434 s video;
+    52-79% within 0.3 m when each window is aligned on its own); merging windows is the weak step.
+  boxes get larger the more views are merged: IoU >= 0.25 is 60% for one 64-frame pass vs 19-33% after merging 450-600 frames.
+Predictions: gandalf runs/eval_q35vs_gandalf/<name>_rvs_question/.
+Other machines: wukong has ..._reason190k_vs_esl31 (GT cls-31 training) and ..._reason190k_vs_think (results not listed here).
+
+F7. SAM 3 + SLAM list, centre / size / score ablation (2026-11-15; mix-v2-1, scene on all 5,130 q.; full / debiased;
+    centre, size: pred or GT of the matched GT box; unmatched boxes keep their prediction):
+      centre size  SAM 3 score   score 1.0
+      pred   pred  68.6 / 62.3   66.7 / 61.4
+      GT     pred  68.8 / 62.4   66.9 / 61.5
+      pred   GT    69.7 / 63.5   68.6 / 63.1
+      GT     GT    69.9 / 63.9   68.9 / 63.4
+    refs: video only 69.4 / 63.7, detector 69.9 / 62.7, full GT 77.3 / 73.9.
+    - size is the only lever: object size 73.3 -> 82.8 (+1.1 overall); centre +0.2; counting unchanged or lower
+      (72.0 -> 70.2 with SAM scores, 62.8 at score 1.0, vs 99.0 with the true list).
+    - score 1.0 always costs ~1-2 points here (extras get trusted); with the true list it gained (70.9 -> 71.7).
+    - GT-only model on the SAM 3 list with GT centre + size: 63.1 / 58.8 (counting 52.1, abs dist 56.6, rel dist 61.0);
+      full GT 82.4 / 80.3. => the list (extras + misses), not the geometry, is the bottleneck. VGG-T-Det refinement (T9)
+      pays only if the keep head removes extras; the best case for geometry alone is 69.9.

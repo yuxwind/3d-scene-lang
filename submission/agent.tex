@@ -1,5 +1,5 @@
 % Claude (no code) on VSI-Bench with the ground-truth scene: Opus 5.5 vs Fable 5.2 (todo 2026.11.18 Exp1-3).
-% Fragment for \input{agent}; needs \usepackage{booktabs}.
+% Fragment for \input{agent}; needs \usepackage{booktabs} and \usepackage{url}.
 % Sources: vggtdet_es56/runs/claude_nocode_s3 (build_gt.py, RULES.md, validate.py, score.py; answers in out/ of set gt),
 % Opus 5.5 run: 3d-scene-lang/docs/reproduce_exps.md:895.
 
@@ -52,3 +52,112 @@ The remaining 752 questions (debiased ScanNet++) were answered by Opus 5.5 with 
 scene in one batch, which helps appearance order (81.9); Fable 5.2 answered them one question per scene (63.8).
 On these questions Opus 5.5 scores 89.9 and Fable 5.2 85.9, but the comparison is not fair to Fable 5.2, so the
 upper part of Table~\ref{tab:agent-fable-opus} leaves them out.
+
+% Code solver on predicted scenes (2026-11-24). Sources (gandalf): 3d-scene-lang/data/scenelang_vsibench_slam/
+% oracle_code_lists.py (answers oracle_code_<list>.json), s3_oracle_rows.py in VGGT-SLAM/exps/vsibench_objects (oracle /
+% oraclecnt lists), model runs runs/eval_q35vs_gandalf/exp1_s3q_rr_{full,gt_full,oracle_full,oraclecnt_full}_rvs_question,
+% mixed answers mix_code_model_oraclecnt.json.
+\section{Code written by Claude on predicted scenes}
+\label{sec:agent-code}
+
+\paragraph{Setup.}
+The code solver (\texttt{oracle.py}, written by Claude) answers a question by computation on the box list alone, with no
+model and no video. Counting is the number of boxes with the label; object size is the longest side of the label's first
+(best-scoring) box; absolute and relative distance are the closest-point distance between boxes; relative direction uses
+the box centres (standing at A, facing B, the side of C from cross and dot products); room size is the area of the
+smallest rotated rectangle covering every box in the floor plane. Appearance order and route planning cannot be computed
+from boxes and score 0; a question whose named object has no box gets no answer and scores 0. We run it on all 5,130
+VSI-Bench questions with these lists (all with the list on every question):
+\begin{itemize}
+\item \emph{threshold}: the SAM~3 + VGGT-SLAM boxes with score $\geq 0.7$, at estimated or real scale;
+\item \emph{oracle}: all SAM~3 + VGGT-SLAM candidates at any score, matched one-to-one to the GT boxes of their label
+  (Hungarian on centre distance, in the GT frame at true scale); a pair is kept if the 3D IoU is $\geq 0.1$ or the centres
+  are within $\max(0.5\,\mathrm{m},\ 0.5\times$ the GT box's longest side); written at estimated scale;
+\item \emph{oraclecnt}: as oracle but without the position check, so each GT object keeps one candidate of its label if
+  there is one (94.9\% of the GT objects; oracle keeps 82.3\%); estimated scale;
+\item the ground-truth scene, as a reference.
+\end{itemize}
+The model is the SFT Qwen3.5-4B Exp1 model (\path{sr_vggt_novggt_qwen35_4b_reason190k_mixv2_1_objq/checkpoint-569}) on
+the same lists with the video.
+
+\begin{table}[h]
+\centering
+\caption{Code solver alone on VSI-Bench (MRA or accuracy, \%). Appearance order and route planning are not computable
+(0). ``6 tasks'': mean over the six computable tasks.}
+\label{tab:agent-code}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrrrrrrr}
+\toprule
+List & Full & Deb. & App. & Abs. & Count & Rel.\ dir. & Rel.\ dist. & Size & Room & Route & 6 tasks \\
+\midrule
+GT scene (ref.)                 & 67.8 & 68.0 & -- & 97.4 & 99.0 & 100.0 & 100.0 & 100.0 & 45.8 & -- & 90.4 \\
+S3 estimated, threshold         & 35.6 & 34.5 & -- & 37.5 & 53.8 & 49.5 & 52.4 & 52.6 & 39.3 & -- & 47.5 \\
+S3 real, threshold (ref.)       & 36.7 & 35.8 & -- & 44.0 & 53.8 & 49.5 & 52.7 & 54.6 & 39.3 & -- & 49.0 \\
+S3 estimated, oracle            & 43.7 & 42.3 & -- & 51.2 & 72.6 & 66.8 & 72.1 & 54.7 & 32.2 & -- & 58.3 \\
+S3 estimated, oraclecnt         & 50.1 & 49.5 & -- & 57.4 & \textbf{90.5} & 81.7 & 80.0 & 57.8 & 33.4 & -- & 66.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Code alone.}
+Table~\ref{tab:agent-code}. With the threshold list about 1,100 questions get no answer because a named object has no
+box (e.g.\ 308 of 834 absolute-distance questions); with oraclecnt only 269 do. On the GT scene the code is at the ceiling
+on every geometry task except room size (45.8).
+
+\begin{table}[h]
+\centering
+\caption{Code solver vs.\ the Exp1 model on the same list (MRA or accuracy, \%). ``Code, else model'': the code's answer
+where it has one, otherwise the model's (no box, appearance order, route planning).}
+\label{tab:agent-code-model}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llrrrrrrrrrr}
+\toprule
+List & Answered by & Full & Deb. & App. & Abs. & Count & Rel.\ dir. & Rel.\ dist. & Size & Room & Route \\
+\midrule
+threshold & model            & 70.0 & 63.3 & 80.7 & 58.5 & 77.1 & 77.0 & 68.7 & 75.7 & 73.1 & 49.5 \\
+threshold & code, else model & 62.0 & 58.6 & 80.7 & 56.5 & 53.8 & \textbf{81.8} & \textbf{69.9} & 64.2 & 39.5 & 49.5 \\
+\midrule
+oracle    & model            & 71.3 & 64.8 & 81.9 & 61.8 & 79.9 & 77.9 & 70.3 & 75.8 & 72.4 & 50.5 \\
+oracle    & code, else model & 67.2 & 63.9 & 81.9 & 62.5 & 72.6 & \textbf{90.8} & \textbf{83.1} & 63.0 & 33.2 & 50.5 \\
+\midrule
+oraclecnt & model            & 71.8 & 65.5 & 80.9 & 62.5 & 82.3 & 78.0 & 71.5 & 75.8 & 73.2 & 50.0 \\
+oraclecnt & code, else model & 68.9 & 66.4 & 80.9 & 62.0 & \textbf{90.5} & \textbf{90.0} & \textbf{84.2} & 60.3 & 33.7 & 50.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Code vs.\ model.}
+Table~\ref{tab:agent-code-model} (estimated scale). On relative direction and relative distance the code is better
+whenever the boxes exist (90.0 / 84.2 against 78.0 / 71.5 with oraclecnt), and better even on the threshold list: the model
+does not compute this geometry from the boxes reliably. On counting the code is better only with a good list (90.5 against
+82.3 with oraclecnt, where the model changes correct counts); on the threshold list the model is far better (77.1 against
+53.8), since it corrects bad counts from the video. On object size and room size the model is clearly better: even
+GT-picked SAM~3 boxes are too small or too large (size 55--58 from the code), and room size from the box outline is poor
+(33--39), while the model uses the video (73). Absolute distance is about the same.
+
+\begin{table}[h]
+\centering
+\caption{Code and model mixed on the oraclecnt list (MRA or accuracy, \%): the code answers absolute distance,
+counting, relative direction and relative distance (2,854 questions); the Exp1 model answers object size, room size and
+route planning, and appearance order, which the code cannot compute (2,053), and the 223 code questions whose named object
+has no box.}
+\label{tab:agent-code-mix}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrrrrrr}
+\toprule
+ & Full & Deb. & App. & Abs. & Count & Rel.\ dir. & Rel.\ dist. & Size & Room & Route \\
+\midrule
+Exp1 model only         & 71.8 & 65.5 & 80.9 & 62.5 & 82.3 & 78.0 & 71.5 & 75.8 & 73.2 & 50.0 \\
+Mix: code + model       & \textbf{75.8} & \textbf{72.2} & 80.9 & 62.0 & \textbf{90.5} & \textbf{90.0} & \textbf{84.2} & 75.8 & 73.2 & 50.0 \\
+$\Delta$                & $+4.0$ & $+6.7$ & $0.0$ & $-0.5$ & $+8.2$ & $+12.0$ & $+12.7$ & $0.0$ & $0.0$ & $0.0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Mixing code and model.}
+Table~\ref{tab:agent-code-mix}: with the oraclecnt list, letting the code answer the four tasks it computes well raises
+VSI-Bench from 71.8 to 75.8 (full) and from 65.5 to 72.2 (debiased). Absolute distance is the one code task that is
+slightly worse than the model ($-0.5$); answering it with the model too would give about 75.9.

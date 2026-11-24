@@ -1,0 +1,33 @@
+2026.11.17
+Exp1: sft-qwen-test2-hybrid:  once the test2-hybrid detection are done. start training qwen3.5-4B with video+detected boxes, follow mix-v2-1 to mix gt/test2-hyrid/no boxes.
+	- use video only (no boxes): 
+		- room size, route planning, appearance order (video only performs better than with GT scene on those tasks)
+		- no named objects covered. 
+	- fully or partially named objects covered:
+		- use GT at a chance of 1/3
+		- use detetion at a chance of 2/3.
+	before this sft, stat the coverage of box detection on reason-190k, per scene, per questions, and compare with cls-31 detection. 
+Exp2: sam3+slam with gt scale and estimated scale. evaluate the diference of the performance on 3D evaluation, and on vsi-bench. 
+Exp3: verify and visualize the 3d boxes training dataset, IndoorDet-65-105k, including embodiedscan(sannet/arkitscene) and scannet++, mainly 65 classses, 105K boxes,  has the uniform cooridnate sysmtm for 3d detection for those three subset, especially for scannet++ as embodiedscan may have the uniform coordiante system. The target is that given a video, it always output 3d boxes that can compare with gt from different source. otherwise, scannet++ can never learn due to wrong supervision.
+Exp4: verify and visualize sam3 + vggt-slam. How do they work togehter? I haven't check the detal of the paper.
+	- verify and visualize the point cloud by vggt and vggt-slam
+	- verify and visualize the 3d box after 
+Exp5: test2-hybrid analysis, it is trained on IndoorDet-65-31k. find 10 weakest classes, overfit them. are they small objects? can test3-feature work for those ojects? Can we adopt vggt feature of boxes better? 
+Exp6: waint for Exp5 and integrate the feature method if it works and expand test-2-hyrbid on IndoorDet-65-105k, from the vggt-det 18-cls checkpoint. don't use the test-2-hybrid checkpoints. 
+Exp7: enable open-vacabulary totally, keep vggt-det 65-cls head in case miss high-frequent lables. 
+
+2026.11.18
+Exp1: follow the prompt of claude (no code) + gt scene, run claude(no code) + vggt-slam-sam3 scene with real scale, include score for each box. in one batch, one question type per batch, at most one question per scene, each question can see only the video and its own  questions and options. 
+1. Use the same boxes as "vggt-slam-sam3, real".
+ - 1-1. trust all boes, use the same promot. 
+ - 1-2. score-aware boxes: modify the prompt, tell it's vggt-slam-sam3 predicted boxes with score, trust high scores.  
+2. Use the same boxes "vggt-slam-sam3, estimated"
+ - 2-1. trust all boxes
+ - 2-2. use score-aware boxes, add score per boxes.
+3. Claude(no code) + gt scene on Fable5.2 and compare to previous results on Opus5.5
+Exp2: evalaute the following exps on ReVSI
+ - 3-1 "vggt-slam-sam3, real"
+ - 3-2 ""vggt-slam-sam3, estimate"
+ - 3-3 claude (no code) + gt scene
+ - 3-4 finetuned qwen3.5-4B on video + gt scene
+ - 3-5 finetuned qwen3.5-4B on video
