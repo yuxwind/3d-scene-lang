@@ -9,7 +9,7 @@ number of options and an example option list, the answer-letter distribution (mu
 quantiles (min/p25/median/p75/max), and words per question.
 prints: a compact table per benchmark; --json writes everything (for plots). Needs pandas (training env).
 """
-import argparse, collections, json, re
+import argparse, collections, json, os, re
 import pandas as pd
 
 TOK = re.compile(r"[A-Za-z]+(?:'[a-z]+)?|\d+(?:\.\d+)?|[^\sA-Za-z\d]")
@@ -99,6 +99,7 @@ def main():
                   f"words {e['words']:5} tmpl {e['n_templates']:4} | {extra}")
             print(f"      {e['templates'][0]['template'][:230]}")
     if a.json:
+        os.makedirs(os.path.dirname(os.path.abspath(a.json)), exist_ok=True)
         json.dump(out, open(a.json, "w"), indent=1, default=str)
         print(f"json: {a.json}")
 
