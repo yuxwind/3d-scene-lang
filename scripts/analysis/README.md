@@ -3,7 +3,7 @@
 Every script that reads results, scores, logs or makes plots lives here. The scripts are **reused and extended, never rewritten**.
 
 ## Rules (for people and agents)
-- **Write here, on the Mac** (`exp-vault/60 Code/3d-scene-lang/repo`), commit, push, then `exp.py deploy 3d-scene-lang all`. Never edit them on a server.
+- **Write here, on the Mac** (`exp-vault/60_Code/3d-scene-lang/repo`), commit, push, then `exp.py deploy 3d-scene-lang all`. Never edit them on a server.
 - **Run them where the data is**, from the Mac:
   `python3 scripts/remote.py run [-n LINES] <host> 3d-scene-lang <script> [args...]` (in the exp-vault).
   The runner sources `site.env` and uses the env's python (`$SR_PYTHON_BIN`) if there is one, else `python3`. Paths like `$SCRATCH/...` expand on the server.
