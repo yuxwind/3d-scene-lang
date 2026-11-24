@@ -18,6 +18,7 @@ prints per run: questions, name resolution, geometric answer vs benchmark answer
 import argparse, glob, json, math, os, re, collections
 
 TURN = re.compile(r"turn (left|right|back)")
+EX = 0
 
 
 def load_gt(path):
@@ -26,7 +27,7 @@ def load_gt(path):
         rows = pd.read_parquet(path).to_dict("records")
     else:
         rows = [json.loads(l) for l in open(path)]
-    return {int(r.get("id", r.get("index"))): str(r["ground_truth"]) for r in rows}
+    return {int(r["index"] if "index" in r else r["id"]): str(r["ground_truth"]) for r in rows}
 
 
 def parse_prompt(t):
@@ -38,7 +39,7 @@ def parse_prompt(t):
 
 
 def opt_text(x):
-    return " ".join(TURN.findall(x.lower())) if TURN.search(x.lower()) else x.lower().strip()
+    return " ".join(TURN.findall(x.lower())) if TURN.search(x.lower()) else x.lower().strip()  # "left right"
 
 
 def to_text(ans, opts):
@@ -70,6 +71,9 @@ def resolve(phrase, labels):
     inside = [l for l in labels if re.search(r"\b" + re.escape(l) + r"\b", q)]
     if inside:
         return "fuzzy", max(inside, key=len)
+    outside = [l for l in labels if re.search(r"\b" + re.escape(q) + r"\b", l)]
+    if outside:
+        return "fuzzy", min(outside, key=len)
     return "missing", None
 
 
@@ -141,7 +145,7 @@ def check(name, run, gt_file):
             r["claude"] = to_text(ans[qq["id"]], opts) if qq["id"] in ans else None
             p = parse_route(q)
             if not p:
-                r["names"] = "unparsed"; recs.append(r); continue
+                r["names"], r["q"] = "unparsed", q; recs.append(r); continue
             start, facing, dest, steps = p
             st, lab = {}, {}
             for key, ph in [("start", start), ("facing", facing), ("dest", dest)] + [(f"go{i}", s[1]) for i, s in enumerate(steps) if s[0] == "go"]:
@@ -150,6 +154,7 @@ def check(name, run, gt_file):
             r["names"] = min(st.values(), key=order.index)
             r["missing_names"] = [p for k, p in [("start", start), ("facing", facing), ("dest", dest)] + [(f"go{i}", s[1]) for i, s in enumerate(steps) if s[0] == "go"] if st[k] == "missing"]
             r["n_turns"] = sum(1 for s in steps if s[0] == "turn")
+            r["q"], r["labels"] = q, sorted(labels)
             if r["names"] != "missing":
                 gl =[lab[k] for k in sorted((k for k in lab if k.startswith("go")), key=lambda k: int(k[2:]))]
                 gsteps, it = [], iter(gl)
@@ -159,9 +164,9 @@ def check(name, run, gt_file):
                 if t is None:
                     r["geo"] = "trailing"
                 else:
-                    r["geo"] = " ".join("turn " + x for x in t)
+                    r["geo"] = " ".join(t)
                     sw = {"left": "right", "right": "left", "back": "back"}
-                    r["geo_swapped"] = " ".join("turn " + sw[x] for x in t)
+                    r["geo_swapped"] = " ".join(sw[x] for x in t)
             recs.append(r)
     return recs
 
@@ -181,6 +186,10 @@ def report(name, recs):
     miss = collections.Counter(m for r in recs for m in r.get("missing_names", []))
     if miss:
         print("   most often missing: " + ", ".join(f"{k} x{v}" for k, v in miss.most_common(8)))
+    for r in [r for r in recs if r["names"] == "missing"][:EX]:
+        print(f"   e.g. missing {r['missing_names']} | labels: {', '.join(r['labels'])[:260]}")
+    for r in [r for r in recs if r["names"] == "unparsed"][:2]:
+        print(f"   e.g. unparsed: {r.get('q', '')[:200]}")
     geo = [r for r in recs if r.get("geo") and r["geo"] != "trailing"]
     tr = sum(1 for r in recs if r.get("geo") == "trailing")
     print(f"   geometric answer computed for {len(geo)} (trailing blank {tr}, names missing {len(by['missing'])})")
@@ -211,8 +220,10 @@ def report(name, recs):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("runs", nargs="+", help="NAME=RUN_DIR,GT_FILE")
-    ap.add_argument("--json")
+    ap.add_argument("--json"); ap.add_argument("--examples", type=int, default=0, help="print N questions with missing names")
     a = ap.parse_args()
+    global EX
+    EX = a.examples
     out = {}
     for spec in a.runs:
         name, _, rest = spec.partition("=")
