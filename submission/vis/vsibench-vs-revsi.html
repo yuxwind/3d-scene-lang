@@ -1,0 +1,424 @@
+<title>VSI-Bench vs ReVSI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (~1000px) of numbered findings; each finding = short text + a chart or a side-by-side table.
+   Two benchmarks = two fixed hues used everywhere (VSI-Bench slate blue, ReVSI copper). */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1b2029; --muted: #5d6677; --line: #dfe3ea;
+  --vsi: #3d5a98; --vsi-soft: #dde5f4; --rev: #b4622d; --rev-soft: #f6e4d6;
+  --add: #2f7d4f; --add-soft: #dcefe3; --del: #a23b3b; --del-soft: #f5dede;
+  --f-head: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12151b; --panel: #1a1f27; --fg: #e4e8ef; --muted: #9aa3b3; --line: #2c3340;
+  --vsi: #86a3e0; --vsi-soft: #243453; --rev: #e09a68; --rev-soft: #4a2f1c;
+  --add: #6cc590; --add-soft: #1d3a29; --del: #e48585; --del-soft: #452222; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12151b; --panel: #1a1f27; --fg: #e4e8ef; --muted: #9aa3b3; --line: #2c3340;
+  --vsi: #86a3e0; --vsi-soft: #243453; --rev: #e09a68; --rev-soft: #4a2f1c;
+  --add: #6cc590; --add-soft: #1d3a29; --del: #e48585; --del-soft: #452222; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1020px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--f-head); text-wrap: balance; margin: 0; }
+h1 { font-size: 2.1rem; font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-size: 1.35rem; font-weight: 600; }
+h3 { font-size: 1rem; font-weight: 600; }
+p { margin: 0; max-width: 70ch; }
+.muted { color: var(--muted); }
+.vsi { color: var(--vsi); font-weight: 600; } .rev { color: var(--rev); font-weight: 600; }
+header { display: grid; gap: 10px; margin-bottom: 26px; }
+.lede { font-size: 1.05rem; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 6px 0 4px; }
+.fact { background: var(--panel); padding: 12px 14px; display: grid; gap: 2px; }
+.fact .k { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.fact .v { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 0.95rem; }
+section { display: grid; gap: 12px; padding-top: 30px; margin-top: 30px; border-top: 1px solid var(--line); }
+.sec-head { display: flex; gap: 12px; align-items: baseline; }
+.sec-head .no { font-family: var(--f-mono); color: var(--muted); font-size: 0.9rem; }
+ul.findings { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; max-width: 76ch; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; min-width: 0; }
+.scroll { overflow-x: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.82rem; color: var(--muted); }
+.legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+svg text { fill: var(--fg); font-family: var(--f-body); }
+svg .ax { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+svg .grid { stroke: var(--line); }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--f-head); font-weight: 600; font-size: 0.85rem; color: var(--muted); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--f-mono); white-space: nowrap; }
+.tmpl { font-family: var(--f-mono); font-size: 0.8rem; line-height: 1.55; }
+.tmpl ins { text-decoration: none; background: var(--add-soft); color: var(--add); border-radius: 3px; padding: 0 2px; }
+.tmpl del { background: var(--del-soft); color: var(--del); border-radius: 3px; padding: 0 2px; }
+.slot { color: var(--muted); }
+.tag { display: inline-block; font-size: 0.72rem; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.tag.new { color: var(--add); border-color: var(--add); } .tag.gone { color: var(--del); border-color: var(--del); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 720px) { .pair { grid-template-columns: 1fr; } h1 { font-size: 1.7rem; } }
+.note { font-size: 0.82rem; color: var(--muted); max-width: 80ch; }
+code { font-family: var(--f-mono); font-size: 0.85em; }
+</style>
+
+<div class="wrap">
+<header>
+  <h1><span class="vsi">VSI-Bench</span> vs <span class="rev">ReVSI</span></h1>
+  <p class="lede">ReVSI asks VSI-Bench's questions again on corrected 3D annotations, two more datasets and 13 question types. It drops appearance order and the two-way left/right question, adds "farthest", "facing away", two-category counting and a "main room" size question, and changes a few words in every template.</p>
+  <div class="facts" id="facts"></div>
+  <p class="note">VSI-Bench: <code>test.jsonl</code> (all 5,130) and <code>test_debiased.parquet</code>. ReVSI: the 64-frame split (<code>64_frame/test-00000-of-00001.parquet</code>), the one used for the Claude run. Both read on gandalf by <code>scripts/analysis/bench_compare.py</code> (repo <code>c13ebdc</code>).</p>
+</header>
+
+<section>
+  <div class="sec-head"><span class="no">1</span><h2>What each benchmark asks, by task</h2></div>
+  <ul class="findings">
+    <li>ReVSI has <b>no appearance-order task</b> (618 VSI-Bench questions, 12 %). Its overall score averages 7 tasks, VSI-Bench's 8.</li>
+    <li>ReVSI splits four tasks into sub-types: counting (single / two categories), relative distance (closest / farthest), relative direction (forward / backward × easy / hard), room size (main room / whole scene).</li>
+    <li>Absolute distance and object size are about a third of each benchmark (35 %); route planning and room size stay small in both (4–6 %).</li>
+  </ul>
+  <div class="legend" id="legend-types"></div>
+  <div class="panel scroll"><svg id="ch-tasks" role="img" aria-label="Questions per task, VSI-Bench and ReVSI"></svg></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="no">2</span><h2>How the question wording changed</h2></div>
+  <ul class="findings">
+    <li>Every template changed slightly: "this room" became "the scene", distance became "direct distance", and object size starts with "Based on visual evidence from the video".</li>
+    <li>VSI-Bench's <i>medium</i> direction question (left / right / back) is ReVSI's <i>forward easy</i>. VSI-Bench's two-way <i>easy</i> question is gone; ReVSI adds the same questions facing away from the object (<i>backward</i>).</li>
+    <li>ReVSI's quadrant question drops VSI-Bench's sentence explaining the quadrants (44 → 23 words).</li>
+    <li>ReVSI uses finer object names from its own annotation (e.g. "double-bowl drainboard kitchen sink", "standing fan", "wall picture").</li>
+  </ul>
+  <p class="note">Templates: words found in at least 40 % of a question type's questions are kept, everything else is shown as <span class="slot">…</span>. Highlighting compares the two templates word by word: <del>only VSI-Bench</del> <ins>only ReVSI</ins>.</p>
+  <div class="panel scroll"><table id="tbl-templates"></table></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="no">3</span><h2>Options and answers</h2></div>
+  <ul class="findings">
+    <li>Option counts match type by type: 4 for relative distance and quadrants, 3 for left / right / back, 2 for VSI-Bench's left / right, 3 or 4 for route planning.</li>
+    <li>VSI-Bench spreads the correct letter evenly (within ±1 per letter). ReVSI does not: in <i>forward easy</i> the answer is B 37 % of the time and A 29 %.</li>
+    <li>The correct <b>direction</b> is skewed in both. "Back" is the answer to 5 % of VSI-Bench's left / right / back questions and 0.8 % of ReVSI's forward ones. The quadrant answer is front-left or front-right 83–88 % of the time (back-left or back-right for backward questions). A model that never says "back" loses little.</li>
+    <li>ReVSI's routes have more turns: 57 % ask for two turns (VSI-Bench 42 %), and only 17 % for one (VSI-Bench 39 %).</li>
+  </ul>
+  <div class="pair">
+    <div class="panel scroll"><h3>Correct direction, share of questions</h3><svg id="ch-dir" role="img" aria-label="Correct direction share per direction question type"></svg></div>
+    <div class="panel scroll"><h3>Correct letter, share of questions</h3><svg id="ch-letters" role="img" aria-label="Correct letter share per multiple-choice type"></svg></div>
+  </div>
+  <div class="pair">
+    <div class="panel scroll"><h3>Route planning: turns to fill in</h3><svg id="ch-turns" role="img" aria-label="Number of turns to fill in, route planning"></svg></div>
+    <div class="panel scroll"><h3>Options per question</h3><table id="tbl-opts"></table></div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="no">4</span><h2>Numeric answers</h2></div>
+  <ul class="findings">
+    <li>ReVSI's distances are longer: the shortest is 1.0 m (VSI-Bench 0.4 m) and the median 2.75 m (1.8 m).</li>
+    <li>Its objects are a little smaller (median 82 cm vs 96 cm) and its rooms smaller (median 12.5–12.8 m² vs 17.5 m²), with ARKitScenes making up most of the single-room questions.</li>
+    <li>Counting with one category looks the same; the two-category questions have larger answers (median 5, up to 81).</li>
+  </ul>
+  <div class="legend"><span><i style="background:var(--vsi)"></i>VSI-Bench</span><span><i style="background:var(--rev)"></i>ReVSI</span><span>box = 25th–75th percentile, line = median, whiskers = min and max (log scale)</span></div>
+  <div class="panel scroll"><svg id="ch-num" role="img" aria-label="Numeric ground truth ranges"></svg></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="no">5</span><h2>Where the scenes come from</h2></div>
+  <ul class="findings">
+    <li>VSI-Bench: 288 scenes from ScanNet, ARKitScenes and ScanNet++. ReVSI: 380 scenes, adding 3RScan and MultiScan; ARKitScenes is 41 % of its questions.</li>
+    <li>VSI-Bench's appearance-order questions come only from ScanNet and ScanNet++ (32 scenes). VSI-Bench also has a debiased subset (2,362 questions); ReVSI has none.</li>
+  </ul>
+  <div class="legend" id="legend-ds"></div>
+  <div class="panel scroll"><svg id="ch-ds" role="img" aria-label="Questions per source dataset"></svg></div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="no">6</span><h2>Do the two benchmarks ask the same questions?</h2></div>
+  <ul class="findings">
+    <li>They share <b>222 scenes</b>: all 48 of ReVSI's ScanNet++ scenes, 121 ARKitScenes and 53 ScanNet scenes. 3RScan and MultiScan are new.</li>
+    <li>Only <b>317 of VSI-Bench's 5,130 questions (6 %)</b> are asked again in the same scene, all numeric: counting, object size, absolute distance and room size.</li>
+    <li><b>No multiple-choice question repeats.</b> ReVSI picks new reference objects, new distractors and finer object names for relative distance, and new start, facing and target objects for relative direction and route planning.</li>
+    <li>Where a question repeats, ReVSI's corrected annotation often changes the answer: counts mostly go up, sizes change (a trash bin 98 → 60 cm), room areas shift by about 3 %.</li>
+    <li>So the ground-truth scene is near-perfect on both for another reason: each benchmark computes its answers from its own 3D boxes, and Claude gets those boxes. Distance, size, count and direction are exact geometry on them.</li>
+  </ul>
+  <div class="legend"><span><i style="background:var(--vsi-soft);border:1px solid var(--vsi)"></i>VSI-Bench questions in shared scenes</span><span><i style="background:var(--vsi)"></i>same question in ReVSI</span><span><i style="background:var(--add)"></i>same question and same answer (numbers within 1 %)</span></div>
+  <div class="panel scroll"><svg id="ch-overlap" role="img" aria-label="VSI-Bench questions asked again in ReVSI"></svg></div>
+  <div class="pair">
+    <div class="panel scroll"><h3>Shared scenes</h3><table id="tbl-scenes"></table></div>
+    <div class="panel scroll"><h3>Same question, different answer (examples)</h3><table id="tbl-diffs"></table></div>
+  </div>
+  <div class="panel scroll"><h3>One shared scene, relative distance (ScanNet++ <code>09c1414f1b</code>)</h3><table id="tbl-scene"></table></div>
+  <p class="note">A question counts as repeated when it is in the same scene and has the same wording after undoing ReVSI's template changes ("the scene" → "this room", "direct distance" → "distance", and so on); multiple-choice questions also count with the same objects but other wording. <code>bench_compare.py --overlap</code> (repo <code>6f91f60</code>), result in <code>Results/bench_compare/bench_overlap.json</code>.</p>
+</section>
+
+<section>
+  <div class="sec-head"><span class="no">7</span><h2>What this means for the Claude results</h2></div>
+  <ul class="findings">
+    <li>Claude Opus 5.5 with the ground-truth scene and no code: <b>93.7</b> on ReVSI (7 tasks), <b>82.7</b> on VSI-Bench (8 tasks, mean of 3 appearance-order reruns).</li>
+    <li>Most of the gap is appearance order, which ReVSI doesn't have and which a scene list cannot answer (44.6). Without it, VSI-Bench's 7 tasks average 88.1.</li>
+    <li>Route planning is far higher on ReVSI (88.2 vs 58.8). This is despite ReVSI's routes having more turns. Room size is weak on both (68.4 vs 62.6).</li>
+  </ul>
+  <div class="panel scroll"><table id="tbl-claude"></table></div>
+  <p class="note">VSI-Bench row: jz <code>claude_nocode_apporder_rerun</code> (Opus 5.5) for appearance order; its other columns come from the first run, whose model is not recorded (see <code>Results/Claude no-code VSI-Bench.md</code>). ReVSI row: gandalf <code>claude_nocode_s3/revsi_gt</code>, as in the paper (<code>claude.tex</code>, Table <code>tab:claude-revsi</code>).</p>
+</section>
+</div>
+
+<script>
+const D = {"vsibench":{"name":"VSI-Bench","n":5130,"scenes":288,"datasets":{"scannet":2071,"arkitscenes":1601,"scannetpp":1458},"types":{"object_size_estimation":{"n":953,"n_debiased":353,"datasets":{"arkitscenes":363,"scannet":357,"scannetpp":233},"scenes":278,"templates":[{"template":"What is the length of the longest dimension (length, width, or height) of the \u2026, measured in centimeters?","n":953}],"examples":["What is the length of the longest dimension (length, width, or height) of the stove, measured in centimeters?","What is the length of the longest dimension (length, width, or height) of the chair, measured in centimeters?"],"words":18.1,"mc":false,"gt":{"min":7.0,"p25":59.0,"median":96.0,"p75":169.0,"max":542.0},"n_templates":1},"object_abs_distance":{"n":834,"n_debiased":434,"datasets":{"scannet":347,"arkitscenes":277,"scannetpp":210},"scenes":221,"templates":[{"template":"Measuring from the closest point of each object, what is the distance between the \u2026 and the \u2026 (in meters)?","n":834}],"examples":["Measuring from the closest point of each object, what is the distance between the sofa and the stove (in meters)?","Measuring from the closest point of each object, what is the distance between the plant and the heater (in meters)?"],"words":20.2,"mc":false,"gt":{"min":0.4,"p25":1.1,"median":1.8,"p75":2.9,"max":12.6},"n_templates":1},"object_rel_distance":{"n":710,"n_debiased":310,"datasets":{"scannetpp":284,"scannet":259,"arkitscenes":167},"scenes":110,"templates":[{"template":"Measuring from the closest point of each object, which of these objects (\u2026, \u2026, \u2026, \u2026) is the closest to the \u2026?","n":207},{"template":"Measuring from the closest point of each object, which of these objects (\u2026, chair, \u2026, \u2026) is the closest to the \u2026?","n":57},{"template":"Measuring from the closest point of each object, which of these objects (\u2026, \u2026, table, \u2026) is the closest to the \u2026?","n":48}],"examples":["Measuring from the closest point of each object, which of these objects (chair, stool, stove, sofa) is the closest to the tv?","Measuring from the closest point of each object, which of these objects (door, computer mouse, keyboard, trash can) is the closest to the whiteboard?"],"words":22.6,"mc":true,"n_options":{"4":710},"option_example":["A. chair","B. stool","C. stove","D. sofa"],"answer_letters":{"A":177,"B":178,"C":177,"D":178},"answer_values":{"chair":125,"table":123,"sofa":40,"door":40,"whiteboard":34,"bed":31,"trash bin":31,"monitor":23,"ceiling light":23,"refrigerator":19,"backpack":14,"fireplace":11},"answer_values_distinct":53,"gt":{},"n_templates":33},"obj_appearance_order":{"n":618,"n_debiased":318,"datasets":{"scannet":390,"scannetpp":228},"scenes":32,"templates":[{"template":"What will be the first - time appearance order of the following categories in the video: \u2026, \u2026, \u2026, \u2026?","n":618}],"examples":["What will be the first-time appearance order of the following categories in the video: ceiling light, cup, heater, door?","What will be the first-time appearance order of the following categories in the video: table, keyboard, bookshelf, door?"],"words":18.4,"mc":true,"n_options":{"4":618},"option_example":["A. cup, door, heater, ceiling light","B. ceiling light, door, cup, heater","C. heater, cup, door, ceiling light","D. ceiling light, cup, heater, door"],"answer_letters":{"A":155,"B":156,"C":154,"D":153},"answer_values":{"cup, door, heater, ceiling light":1,"toilet, door, heater, ceiling light":1,"toilet, basket, blanket, ceiling light":1,"toilet, basket, bed, table":1,"door, basket, pillow, ceiling light":1,"toilet, basket, bed, plant":1,"door, basket, blanket, table":1,"door, basket, bed, ceiling light":1,"toilet, basket, bed, sofa":1,"door, basket, blanket, plant":1,"toilet, basket, bed, ceiling light":1,"door, basket, bed, plant":1},"answer_values_distinct":618,"gt":{},"n_templates":1},"object_counting":{"n":565,"n_debiased":251,"datasets":{"scannet":223,"scannetpp":176,"arkitscenes":166},"scenes":202,"templates":[{"template":"How many \u2026 (s) are in this room?","n":565}],"examples":["How many table(s) are in this room?","How many chair(s) are in this room?"],"words":7.1,"mc":false,"gt":{"min":1.0,"p25":2.0,"median":2.0,"p75":4.0,"max":47.0},"n_templates":1},"object_rel_direction_medium":{"n":378,"n_debiased":54,"datasets":{"scannet":147,"arkitscenes":135,"scannetpp":96},"scenes":107,"templates":[{"template":"If I am standing by the \u2026 and facing the \u2026, is the \u2026 to my left, right, or back? An object is to my back if I would have to turn at least 135 degrees in order to face it.","n":378}],"examples":["If I am standing by the stove and facing the sofa, is the tv to my left, right, or back?\nAn object is to my back if I would have to turn at least 135 degrees in order to face it.","If I am standing by the refrigerator and facing the heater, is the microwave to my left, right, or back?\nAn object is to my back if I would have to turn at least 135 degrees in order to face it."],"words":41.3,"mc":true,"n_options":{"3":378},"option_example":["A. back","B. right","C. left"],"answer_letters":{"A":126,"B":127,"C":125},"answer_values":{"left":188,"right":172,"back":18},"answer_values_distinct":3,"gt":{},"n_templates":1},"object_rel_direction_hard":{"n":373,"n_debiased":116,"datasets":{"arkitscenes":142,"scannet":133,"scannetpp":98},"scenes":105,"templates":[{"template":"If I am standing by the \u2026 and facing the \u2026, is the \u2026 to my front - left, front - right, back - left, or back - right? The directions refer to the quadrants of a Cartesian plane (if I am standing at the origin and facing along the positive y - axis).","n":373}],"examples":["If I am standing by the stove and facing the sofa, is the tv to my front-left, front-right, back-left, or back-right?\nThe directions refer to the quadrants of a Cartesian plane (if I am standing at the origin and facing along the positive y-axis).","If I am standing by the heater and facing the microwave, is the door to my front-left, front-right, back-left, or back-right?\nThe directions refer to the quadrants of a Cartesian plane (if I am standing at the origin and facing along the positive y-axis)."],"words":44.3,"mc":true,"n_options":{"4":373},"option_example":["A. front-left","B. back-right","C. back-left","D. front-right"],"answer_letters":{"A":92,"B":94,"C":94,"D":93},"answer_values":{"front-left":160,"front-right":152,"back-right":32,"back-left":29},"answer_values_distinct":4,"gt":{},"n_templates":1},"room_size_estimation":{"n":288,"n_debiased":200,"datasets":{"arkitscenes":150,"scannet":88,"scannetpp":50},"scenes":288,"templates":[{"template":"What is the size of this room (in square meters)? If multiple rooms are shown, estimate the size of the combined space.","n":288}],"examples":["What is the size of this room (in square meters)? \nIf multiple rooms are shown, estimate the size of the combined space.","What is the size of this room (in square meters)? \nIf multiple rooms are shown, estimate the size of the combined space."],"words":22.0,"mc":false,"gt":{"min":2.4,"p25":11.15,"median":17.5,"p75":26.68,"max":128.5},"n_templates":1},"object_rel_direction_easy":{"n":217,"n_debiased":212,"datasets":{"arkitscenes":97,"scannet":63,"scannetpp":57},"scenes":76,"templates":[{"template":"If I am standing by the \u2026 and facing the \u2026, is the \u2026 to the left or the right of the \u2026?","n":217}],"examples":["If I am standing by the stove and facing the sofa, is the tv to the left or the right of the sofa?","If I am standing by the bookshelf and facing the door, is the laptop to the left or the right of the door?"],"words":23.3,"mc":true,"n_options":{"2":217},"option_example":["A. left","B. right"],"answer_letters":{"A":109,"B":108},"answer_values":{"left":111,"right":106},"answer_values_distinct":2,"gt":{},"n_templates":1},"route_planning":{"n":194,"n_debiased":114,"datasets":{"arkitscenes":104,"scannet":64,"scannetpp":26},"scenes":194,"templates":[{"template":"You are a robot beginning at the door and facing the \u2026. You want to navigate to the \u2026. You will perform the following actions (Note: for each [ please fill in ], choose either ' turn back, ' ' turn left, ' or ' turn right. '): 1. Go forward until the \u2026 2. [ please fill in ] 3. Go forward until the \u2026. You have reached the final destination.","n":10},{"template":"You are a robot beginning at the \u2026 and facing the \u2026. You want to navigate to the \u2026. You will perform the following actions (Note: for each [ please fill in ], choose either ' turn back, ' ' turn left, ' or ' turn right. '): 1. [ please fill in ] 2. Go forward until the \u2026. You have reached the final destination.","n":9},{"template":"You are a robot beginning at the \u2026 facing the \u2026. You want to navigate to the \u2026. You will perform the following actions (Note: for each [ please fill in ], choose either ' turn back, ' ' turn left, ' or ' turn right. '): 1. [ please fill in ] 2. Go forward until the \u2026. You have reached the final destination.","n":7}],"examples":["You are a robot beginning at the bed facing the tv. You want to navigate to the toilet. You will perform the following actions (Note: for each [please fill in], choose either 'turn back,' 'turn left,' or 'turn right.'): 1. Go forward until the TV 2. [please fill in] 3. Go forward until the shower 4. [please fill in] 5. Go forward until the toilet. You have reached the final destination.","You are a robot beginning at the table and facing the window. You want to navigate to the dresser. You will perform the following actions (Note: for each [please fill in], choose either 'turn back,' 'turn left,' or 'turn right.'): 1. [please fill in] 2. Go forward until the door 3. [please fill in]. You have reached the final destination."],"words":70.3,"mc":true,"n_options":{"4":118,"3":76},"option_example":["A. Turn Back, Turn Left","B. Turn Left, Turn Left","C. Turn Left, Turn Right","D. Turn Right, Turn Right"],"answer_letters":{"A":57,"B":56,"C":53,"D":28},"answer_values":{"turn right":37,"turn left":20,"turn back":19,"turn left, turn right":16,"turn back, turn right":16,"turn right, turn left":14,"turn right, turn right":13,"turn back, turn left":13,"turn left, turn left":8,"turn left, turn left, turn left":6,"turn right, turn left, turn left":5,"turn right, turn right, turn left":4},"answer_values_distinct":26,"blanks":{"2":76,"3":81,"4":33,"5":4},"n_templates":141}}},"revsi":{"name":"ReVSI (64 frames)","n":6616,"scenes":380,"datasets":{"ARKitScenes":2685,"ScanNetPPv2":1438,"ScanNetv2":1423,"MultiScan":537,"3RScan":533},"types":{"object_abs_distance":{"n":1208,"datasets":{"ARKitScenes":557,"ScanNetv2":235,"ScanNetPPv2":223,"3RScan":98,"MultiScan":95},"scenes":301,"templates":[{"template":"Measuring from the closest point of each object, what is the direct distance between the \u2026 and the \u2026 (in meters)?","n":1205},{"template":"Measuring from the closest point of each object, what is the direct distance between the \u2026 and the \u2026 of \u2026 (in meters)?","n":2},{"template":"Measuring from the closest point of each object, what is the direct distance between the \u2026 the \u2026 and the \u2026 (in meters)?","n":1}],"examples":["Measuring from the closest point of each object, what is the direct distance between the tv and the wall picture (in meters)?","Measuring from the closest point of each object, what is the direct distance between the wall clock and the radiator (in meters)?"],"words":22.1,"mc":false,"gt":{"min":1.0,"p25":1.9,"median":2.75,"p75":3.7,"max":10.2},"n_templates":3},"object_size_estimation":{"n":1126,"datasets":{"ARKitScenes":493,"ScanNetv2":246,"ScanNetPPv2":183,"3RScan":104,"MultiScan":100},"scenes":349,"templates":[{"template":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the \u2026, measured in centimeters?","n":1124},{"template":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the \u2026 the \u2026, measured in centimeters?","n":1},{"template":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the \u2026 of \u2026, measured in centimeters?","n":1}],"examples":["Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the floor lamp, measured in centimeters?","Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the printer, measured in centimeters?"],"words":25.7,"mc":false,"gt":{"min":7.0,"p25":46.0,"median":82.0,"p75":134.0,"max":548.0},"n_templates":3},"object_rel_distance_closest":{"n":760,"datasets":{"ARKitScenes":283,"ScanNetPPv2":215,"ScanNetv2":137,"MultiScan":67,"3RScan":58},"scenes":169,"templates":[{"template":"Measuring from the closest point of each object, which of these objects (\u2026, \u2026, \u2026, \u2026) is the closest to the \u2026?","n":759},{"template":"Measuring from the closest point of each object, which of these objects (\u2026 of \u2026, \u2026, \u2026, \u2026) is the closest to the \u2026?","n":1}],"examples":["Measuring from the closest point of each object, which of these objects (wall picture, radiator, table, chair) is the closest to the double-bowl drainboard kitchen sink?","Measuring from the closest point of each object, which of these objects (wall picture, floor lamp, laundry hamper, nightstand) is the closest to the chair?"],"words":24.8,"mc":true,"n_options":{"4":760},"option_example":["A. wall picture","B. radiator","C. table","D. chair"],"answer_letters":{"A":197,"B":194,"C":178,"D":191},"answer_values":{"chair":52,"table":26,"trash can":25,"pillow":20,"radiator":20,"oven":19,"microwave":18,"sink":17,"refrigerator":17,"tv":16,"desk":16,"dining table":13},"answer_values_distinct":189,"gt":{},"n_templates":2},"object_counting_single":{"n":694,"datasets":{"ARKitScenes":236,"ScanNetv2":199,"ScanNetPPv2":166,"3RScan":54,"MultiScan":39},"scenes":300,"templates":[{"template":"How many \u2026 (s) are in the scene?","n":694}],"examples":["How many table(s) are in the scene?","How many ceiling light(s) are in the scene?"],"words":7.4,"mc":false,"gt":{"min":1.0,"p25":2.0,"median":2.0,"p75":4.0,"max":57.0},"n_templates":1},"object_rel_distance_farthest":{"n":519,"datasets":{"ARKitScenes":194,"ScanNetPPv2":142,"ScanNetv2":92,"MultiScan":50,"3RScan":41},"scenes":123,"templates":[{"template":"Measuring from the closest point of each object, which of these objects (\u2026, \u2026, \u2026, \u2026) is the farthest from the \u2026?","n":519}],"examples":["Measuring from the closest point of each object, which of these objects (tv, wall picture, standing fan, radiator) is the farthest from the double-bowl drainboard kitchen sink?","Measuring from the closest point of each object, which of these objects (laundry hamper, floor lamp, electric kettle, pillow) is the farthest from the monitor?"],"words":24.9,"mc":true,"n_options":{"4":519},"option_example":["A. tv","B. wall picture","C. standing fan","D. radiator"],"answer_letters":{"A":135,"B":119,"C":135,"D":130},"answer_values":{"radiator":30,"floor lamp":26,"window":22,"tv":20,"wall clock":19,"room door":18,"telephone":16,"microwave":13,"trash can":11,"washer":10,"air conditioner":9,"light switch":8},"answer_values_distinct":135,"gt":{},"n_templates":1},"object_rel_direction_forward_easy":{"n":400,"datasets":{"ARKitScenes":167,"ScanNetPPv2":87,"ScanNetv2":81,"MultiScan":34,"3RScan":31},"scenes":134,"templates":[{"template":"If I am standing by the \u2026 and facing the \u2026, is the \u2026 to my left, right, or back? An object is to my back if I would have to turn at least 135 degrees in order to face it.","n":394},{"template":"If I am standing by the \u2026 and facing the standing \u2026, is the \u2026 to my left, right, or back? An object is to my back if I would have to turn at least 135 degrees in order to face it.","n":4},{"template":"If I am standing by the \u2026 and facing the \u2026, is the standing \u2026 to my left, right, or back? An object is to my back if I would have to turn at least 135 degrees in order to face it.","n":1}],"examples":["If I am standing by the floor lamp and facing the wall picture, is the standing fan to my left, right, or back?\nAn object is to my back if I would have to turn at least 135 degrees in order to face it.","If I am standing by the intercom and facing the stool, is the trash bin to my left, right, or back?\nAn object is to my back if I would have to turn at least 135 degrees in order to face it."],"words":42.8,"mc":true,"n_options":{"3":400},"option_example":["A. back","B. right","C. left"],"answer_letters":{"A":116,"B":149,"C":135},"answer_values":{"left":201,"right":196,"back":3},"answer_values_distinct":3,"gt":{},"n_templates":4},"object_counting_multiple":{"n":396,"datasets":{"ARKitScenes":123,"ScanNetv2":123,"ScanNetPPv2":91,"3RScan":31,"MultiScan":28},"scenes":184,"templates":[{"template":"How many \u2026 (s) and \u2026 (s) are in the scene in total?","n":396}],"examples":["How many trash bin(s) and pillow(s) are in the scene in total?","How many wall clock(s) and mat(s) are in the scene in total?"],"words":11.8,"mc":false,"gt":{"min":3.0,"p25":4.0,"median":5.0,"p75":7.0,"max":81.0},"n_templates":1},"object_rel_direction_forward_hard":{"n":354,"datasets":{"ARKitScenes":129,"ScanNetPPv2":83,"ScanNetv2":72,"MultiScan":40,"3RScan":30},"scenes":109,"templates":[{"template":"If I am standing by the \u2026 and facing the \u2026, is the \u2026 to my front - left, front - right, back - left, or back - right?","n":327},{"template":"If I am standing by the \u2026 and facing the \u2026, is the \u2026 - \u2026 to my front - left, front - right, back - left, or back - right?","n":9},{"template":"If I am standing by the \u2026 - \u2026 and facing the \u2026, is the \u2026 to my front - left, front - right, back - left, or back - right?","n":6}],"examples":["If I am standing by the floor lamp and facing the double-bowl drainboard kitchen sink, is the tv to my front-left, front-right, back-left, or back-right?","If I am standing by the refrigerator and facing the candle, is the knife block set to my front-left, front-right, back-left, or back-right?"],"words":22.8,"mc":true,"n_options":{"4":354},"option_example":["A. back-right","B. front-left","C. back-left","D. front-right"],"answer_letters":{"A":88,"B":86,"C":97,"D":83},"answer_values":{"front-left":157,"front-right":154,"back-right":24,"back-left":19},"answer_values_distinct":4,"gt":{},"n_templates":8},"object_rel_direction_backward_hard":{"n":320,"datasets":{"ARKitScenes":125,"ScanNetPPv2":74,"ScanNetv2":65,"MultiScan":33,"3RScan":23},"scenes":116,"templates":[{"template":"If I am standing by the \u2026 and facing in the opposite direction of the \u2026, is the \u2026 to my front - left, front - right, back - left, or back - right?","n":298},{"template":"If I am standing by the \u2026 and facing in the opposite direction of the \u2026 - \u2026, is the \u2026 to my front - left, front - right, back - left, or back - right?","n":9},{"template":"If I am standing by the \u2026 and facing in the opposite direction of the \u2026, is the \u2026 - \u2026 to my front - left, front - right, back - left, or back - right?","n":6}],"examples":["If I am standing by the tv and facing in the opposite direction of the wall picture, is the floor lamp to my front-left, front-right, back-left, or back-right?","If I am standing by the refrigerator and facing in the opposite direction of the paper towel, is the rice cooker to my front-left, front-right, back-left, or back-right?"],"words":27.9,"mc":true,"n_options":{"4":320},"option_example":["A. front-right","B. front-left","C. back-left","D. back-right"],"answer_letters":{"A":66,"B":96,"C":85,"D":73},"answer_values":{"back-right":148,"back-left":132,"front-left":20,"front-right":20},"answer_values_distinct":4,"gt":{},"n_templates":7},"route_planning":{"n":279,"datasets":{"ARKitScenes":140,"ScanNetPPv2":60,"ScanNetv2":50,"3RScan":19,"MultiScan":10},"scenes":136,"templates":[{"template":"You are a robot beginning at the \u2026 and facing the \u2026. You want to navigate to the \u2026. You will perform the following actions (Note: for each [ please fill in ], choose either ' turn back, ' ' turn left, ' or ' turn right. '): 1. [ please fill in ]. 2. Go forward until the \u2026. 3. [ please fill in ]. 4. Go forward until the \u2026. You have reached the final destination.","n":51},{"template":"You are a robot beginning at the \u2026 and facing the \u2026. You want to navigate to the \u2026. You will perform the following actions (Note: for each [ please fill in ], choose either ' turn back, ' ' turn left, ' or ' turn right. '): 1. Go forward until the \u2026. 2. [ please fill in ]. 3. Go forward until the \u2026. You have reached the final destination.","n":28},{"template":"You are a robot beginning at the \u2026 and facing the \u2026. You want to navigate to the \u2026. You will perform the following actions (Note: for each [ please fill in ], choose either ' turn back, ' ' turn left, ' or ' turn right. '): 1. [ please fill in ]. 2. Go forward until the \u2026. 3. [ please fill in ]. 4. Go forward until the \u2026. \u2026. [ please fill in ]. \u2026. Go forward until the \u2026. You have reached the final destination.","n":18}],"examples":["You are a robot beginning at the floor lamp and facing the standing fan. You want to navigate to the oven. You will perform the following actions (Note: for each [please fill in], choose either 'turn back,' 'turn left,' or 'turn right.'): 1. Go forward until the standing fan. 2. [please fill in]. 3. Go forward until the oven. 4. [please fill in]. You have reached the final destination.","You are a robot beginning at the air exchanger and facing the microwave. You want to navigate to the monitor. You will perform the following actions (Note: for each [please fill in], choose either 'turn back,' 'turn left,' or 'turn right.'): 1. Go forward until the range hood. 2. [please fill in]. 3. Go forward until the monitor. 4. [please fill in]. You have reached the final destination."],"words":73.5,"mc":true,"n_options":{"4":232,"3":47},"option_example":["A. Turn Left, Turn Right","B. Turn Right, Turn Left","C. Turn Left, Turn Back","D. Turn Right, Turn Right"],"answer_letters":{"A":72,"B":63,"C":86,"D":58},"answer_values":{"turn right, turn left":34,"turn left, turn right":33,"turn left, turn left":30,"turn right, turn right":26,"turn left":23,"turn right":23,"turn back, turn right":19,"turn back, turn left":15,"turn right, turn left, turn left":9,"turn right, turn right, turn right":8,"turn left, turn right, turn right":8,"turn right, turn left, turn right":7},"answer_values_distinct":29,"blanks":{"2":47,"3":158,"4":66,"5":8},"n_templates":105},"object_rel_direction_backward_easy":{"n":258,"datasets":{"ARKitScenes":104,"ScanNetPPv2":67,"ScanNetv2":49,"MultiScan":26,"3RScan":12},"scenes":97,"templates":[{"template":"If I am standing by the \u2026 and facing in the opposite direction of the \u2026, is the \u2026 to my left, right, or back? An object is to my back if I would have to turn at least 135 degrees in order to face it.","n":254},{"template":"If I am standing by the \u2026 and facing in the opposite direction of the \u2026, is the standing \u2026 to my left, right, or back? An object is to my back if I would have to turn at least 135 degrees in order to face it.","n":2},{"template":"If I am standing by the \u2026 and facing in the opposite direction of the standing \u2026, is the \u2026 to my left, right, or back? An object is to my back if I would have to turn at least 135 degrees in order to face it.","n":2}],"examples":["If I am standing by the wall picture and facing in the opposite direction of the double-bowl drainboard kitchen sink, is the standing fan to my left, right, or back?\nAn object is to my back if I would have to turn at least 135 degrees in order to face it.","If I am standing by the pillow and facing in the opposite direction of the monitor, is the laundry hamper to my left, right, or back?\nAn object is to my back if I would have to turn at least 135 degrees in order to face it."],"words":47.7,"mc":true,"n_options":{"3":258},"option_example":["A. right","B. back","C. left"],"answer_letters":{"A":89,"B":84,"C":85},"answer_values":{"left":119,"right":108,"back":31},"answer_values_distinct":3,"gt":{},"n_templates":3},"room_size_estimation_single":{"n":174,"datasets":{"ARKitScenes":134,"ScanNetv2":28,"3RScan":9,"ScanNetPPv2":3},"scenes":174,"templates":[{"template":"What is the size of the main room (in square meters)? If multiple rooms are shown, estimate only the size of the dominant room in which the video is primarily recorded.","n":174}],"examples":["What is the size of the main room (in square meters)? If multiple rooms are shown, estimate only the size of the dominant room in which the video is primarily recorded.","What is the size of the main room (in square meters)? If multiple rooms are shown, estimate only the size of the dominant room in which the video is primarily recorded."],"words":31.0,"mc":false,"gt":{"min":2.3,"p25":7.25,"median":12.75,"p75":18.27,"max":69.9},"n_templates":1},"room_size_estimation_multiple":{"n":128,"datasets":{"ScanNetv2":46,"ScanNetPPv2":44,"3RScan":23,"MultiScan":15},"scenes":128,"templates":[{"template":"What is the size of the scene (in square meters)? If multiple rooms are shown, estimate the size of the combined space.","n":128}],"examples":["What is the size of the scene (in square meters)? If multiple rooms are shown, estimate the size of the combined space.","What is the size of the scene (in square meters)? If multiple rooms are shown, estimate the size of the combined space."],"words":22.0,"mc":false,"gt":{"min":1.7,"p25":6.2,"median":12.45,"p75":19.78,"max":101.5},"n_templates":1}}}};
+D.overlap = {"scenes":{"vsi":288,"revsi":380,"shared":222},"groups":{"abs_dist":{"vsi_n":834,"vsi_shared_scenes":644,"revsi_n":1208,"revsi_shared_scenes":759,"same_question":12,"same_objects":23,"same_answer":15,"same_option_set":null,"same_option_order":null,"numeric_rel_diff_median":0.0,"numeric_rel_diff_p90":0.041333333333333375},"obj_size":{"vsi_n":953,"vsi_shared_scenes":753,"revsi_n":1126,"revsi_shared_scenes":657,"same_question":91,"same_objects":91,"same_answer":54,"same_option_set":null,"same_option_order":null,"numeric_rel_diff_median":0.0,"numeric_rel_diff_p90":0.125},"count":{"vsi_n":565,"vsi_shared_scenes":402,"revsi_n":694,"revsi_shared_scenes":466,"same_question":129,"same_objects":129,"same_answer":102,"same_option_set":null,"same_option_order":null,"numeric_rel_diff_median":0.0,"numeric_rel_diff_p90":0.3333333333333333},"rel_dist":{"vsi_n":710,"vsi_shared_scenes":508,"revsi_n":760,"revsi_shared_scenes":488,"same_question":0,"same_objects":0,"same_answer":0,"same_option_set":0,"same_option_order":0,"numeric_rel_diff_median":null,"numeric_rel_diff_p90":null},"rel_dir_3way":{"vsi_n":378,"vsi_shared_scenes":310,"revsi_n":400,"revsi_shared_scenes":243,"same_question":0,"same_objects":0,"same_answer":0,"same_option_set":0,"same_option_order":0,"numeric_rel_diff_median":null,"numeric_rel_diff_p90":null},"rel_dir_quad":{"vsi_n":373,"vsi_shared_scenes":293,"revsi_n":354,"revsi_shared_scenes":212,"same_question":0,"same_objects":0,"same_answer":0,"same_option_set":0,"same_option_order":0,"numeric_rel_diff_median":null,"numeric_rel_diff_p90":null},"room_size":{"vsi_n":288,"vsi_shared_scenes":222,"revsi_n":128,"revsi_shared_scenes":74,"same_question":74,"same_objects":74,"same_answer":11,"same_option_set":null,"same_option_order":null,"numeric_rel_diff_median":0.03125000000000003,"numeric_rel_diff_p90":0.07692307692307697},"route":{"vsi_n":194,"vsi_shared_scenes":148,"revsi_n":279,"revsi_shared_scenes":204,"same_question":0,"same_objects":0,"same_answer":0,"same_option_set":0,"same_option_order":0,"numeric_rel_diff_median":null,"numeric_rel_diff_p90":null}},"examples":[{"task":"obj_size","scene":"ARKitScenes/42446535","vsi_q":"What is the length of the longest dimension (length, width, or height) of the bathtub, measured in centimeters?","revsi_q":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the bathtub, measured in centimeters?","vsi_gt":155.0,"revsi_gt":181.0},{"task":"obj_size","scene":"ARKitScenes/47429912","vsi_q":"What is the length of the longest dimension (length, width, or height) of the bathtub, measured in centimeters?","revsi_q":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the bathtub, measured in centimeters?","vsi_gt":193.0,"revsi_gt":172.0},{"task":"obj_size","scene":"ScanNetPPv2/578511c8a9","vsi_q":"What is the length of the longest dimension (length, width, or height) of the table lamp, measured in centimeters?","revsi_q":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the table lamp, measured in centimeters?","vsi_gt":103.0,"revsi_gt":87.0},{"task":"obj_size","scene":"ScanNetPPv2/27dd4da69e","vsi_q":"What is the length of the longest dimension (length, width, or height) of the cutting board, measured in centimeters?","revsi_q":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the cutting board, measured in centimeters?","vsi_gt":40.0,"revsi_gt":35.0},{"task":"obj_size","scene":"ScanNetv2/scene0686_00","vsi_q":"What is the length of the longest dimension (length, width, or height) of the trash bin, measured in centimeters?","revsi_q":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the trash bin, measured in centimeters?","vsi_gt":98.0,"revsi_gt":60.0},{"task":"obj_size","scene":"ScanNetv2/scene0553_00","vsi_q":"What is the length of the longest dimension (length, width, or height) of the trash bin, measured in centimeters?","revsi_q":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the trash bin, measured in centimeters?","vsi_gt":106.0,"revsi_gt":55.0},{"task":"obj_size","scene":"ScanNetv2/scene0580_01","vsi_q":"What is the length of the longest dimension (length, width, or height) of the nightstand, measured in centimeters?","revsi_q":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the nightstand, measured in centimeters?","vsi_gt":69.0,"revsi_gt":56.0},{"task":"obj_size","scene":"ScanNetv2/scene0025_01","vsi_q":"What is the length of the longest dimension (length, width, or height) of the pillow, measured in centimeters?","revsi_q":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the pillow, measured in centimeters?","vsi_gt":66.0,"revsi_gt":48.0},{"task":"obj_size","scene":"ScanNetv2/scene0046_01","vsi_q":"What is the length of the longest dimension (length, width, or height) of the nightstand, measured in centimeters?","revsi_q":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the nightstand, measured in centimeters?","vsi_gt":58.0,"revsi_gt":69.0},{"task":"obj_size","scene":"ScanNetv2/scene0144_00","vsi_q":"What is the length of the longest dimension (length, width, or height) of the pillow, measured in centimeters?","revsi_q":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the pillow, measured in centimeters?","vsi_gt":79.0,"revsi_gt":62.0},{"task":"obj_size","scene":"ScanNetv2/scene0222_01","vsi_q":"What is the length of the longest dimension (length, width, or height) of the fan, measured in centimeters?","revsi_q":"Based on visual evidence from the video, what is the length of the longest dimension (length, width, or height) of the fan, measured in centimeters?","vsi_gt":71.0,"revsi_gt":61.0},{"task":"count","scene":"ARKitScenes/42444976","vsi_q":"How many chair(s) are in this room?","revsi_q":"How many chair(s) are in the scene?","vsi_gt":3.0,"revsi_gt":4.0},{"task":"count","scene":"ARKitScenes/42446103","vsi_q":"How many chair(s) are in this room?","revsi_q":"How many chair(s) are in the scene?","vsi_gt":3.0,"revsi_gt":4.0},{"task":"count","scene":"ARKitScenes/42446151","vsi_q":"How many stool(s) are in this room?","revsi_q":"How many stool(s) are in the scene?","vsi_gt":2.0,"revsi_gt":3.0},{"task":"count","scene":"ARKitScenes/44358436","vsi_q":"How many chair(s) are in this room?","revsi_q":"How many chair(s) are in the scene?","vsi_gt":3.0,"revsi_gt":4.0},{"task":"count","scene":"ARKitScenes/44358499","vsi_q":"How many chair(s) are in this room?","revsi_q":"How many chair(s) are in the scene?","vsi_gt":4.0,"revsi_gt":5.0},{"task":"count","scene":"ARKitScenes/45260928","vsi_q":"How many chair(s) are in this room?","revsi_q":"How many chair(s) are in the scene?","vsi_gt":5.0,"revsi_gt":6.0},{"task":"count","scene":"ARKitScenes/47115460","vsi_q":"How many chair(s) are in this room?","revsi_q":"How many chair(s) are in the scene?","vsi_gt":2.0,"revsi_gt":3.0},{"task":"count","scene":"ARKitScenes/47115543","vsi_q":"How many table(s) are in this room?","revsi_q":"How many table(s) are in the scene?","vsi_gt":2.0,"revsi_gt":4.0},{"task":"count","scene":"ARKitScenes/47430023","vsi_q":"How many tv(s) are in this room?","revsi_q":"How many tv(s) are in the scene?","vsi_gt":2.0,"revsi_gt":1.0},{"task":"count","scene":"ScanNetPPv2/3f15a9266d","vsi_q":"How many cup(s) are in this room?","revsi_q":"How many cup(s) are in the scene?","vsi_gt":3.0,"revsi_gt":2.0},{"task":"count","scene":"ScanNetPPv2/b0a08200c9","vsi_q":"How many computer mouse(s) are in this room?","revsi_q":"How many computer mouse(s) are in the scene?","vsi_gt":3.0,"revsi_gt":2.0},{"task":"count","scene":"ScanNetPPv2/3db0a1c8f3","vsi_q":"How many chair(s) are in this room?","revsi_q":"How many chair(s) are in the scene?","vsi_gt":4.0,"revsi_gt":6.0},{"task":"count","scene":"ScanNetPPv2/578511c8a9","vsi_q":"How many computer mouse(s) are in this room?","revsi_q":"How many computer mouse(s) are in the scene?","vsi_gt":8.0,"revsi_gt":11.0},{"task":"count","scene":"ScanNetPPv2/d755b3d9d8","vsi_q":"How many printer(s) are in this room?","revsi_q":"How many printer(s) are in the scene?","vsi_gt":2.0,"revsi_gt":3.0},{"task":"count","scene":"ScanNetPPv2/d755b3d9d8","vsi_q":"How many keyboard(s) are in this room?","revsi_q":"How many keyboard(s) are in the scene?","vsi_gt":2.0,"revsi_gt":3.0},{"task":"count","scene":"ScanNetPPv2/5f99900f09","vsi_q":"How many chair(s) are in this room?","revsi_q":"How many chair(s) are in the scene?","vsi_gt":14.0,"revsi_gt":22.0},{"task":"count","scene":"ScanNetPPv2/27dd4da69e","vsi_q":"How many chair(s) are in this room?","revsi_q":"How many chair(s) are in the scene?","vsi_gt":2.0,"revsi_gt":4.0},{"task":"count","scene":"ScanNetPPv2/27dd4da69e","vsi_q":"How many suitcase(s) are in this room?","revsi_q":"How many suitcase(s) are in the scene?","vsi_gt":3.0,"revsi_gt":2.0},{"task":"count","scene":"ScanNetv2/scene0356_00","vsi_q":"How many trash bin(s) are in this room?","revsi_q":"How many trash bin(s) are in the scene?","vsi_gt":2.0,"revsi_gt":3.0},{"task":"count","scene":"ScanNetv2/scene0500_00","vsi_q":"How many table(s) are in this room?","revsi_q":"How many table(s) are in the scene?","vsi_gt":2.0,"revsi_gt":5.0},{"task":"count","scene":"ScanNetv2/scene0086_02","vsi_q":"How many door(s) are in this room?","revsi_q":"How many door(s) are in the scene?","vsi_gt":3.0,"revsi_gt":4.0},{"task":"room_size","scene":"ScanNetv2/scene0658_00","vsi_q":"What is the size of this room (in square meters)? \nIf multiple rooms are shown, estimate the size of the combined space.","revsi_q":"What is the size of the scene (in square meters)? If multiple rooms are shown, estimate the size of the combined space.","vsi_gt":14.7,"revsi_gt":16.2},{"task":"room_size","scene":"ScanNetv2/scene0441_00","vsi_q":"What is the size of this room (in square meters)? \nIf multiple rooms are shown, estimate the size of the combined space.","revsi_q":"What is the size of the scene (in square meters)? If multiple rooms are shown, estimate the size of the combined space.","vsi_gt":6.9,"revsi_gt":9.9},{"task":"room_size","scene":"ScanNetv2/scene0550_00","vsi_q":"What is the size of this room (in square meters)? \nIf multiple rooms are shown, estimate the size of the combined space.","revsi_q":"What is the size of the scene (in square meters)? If multiple rooms are shown, estimate the size of the combined space.","vsi_gt":6.7,"revsi_gt":6.0}]};
+const V = D.vsibench.types, R = D.revsi.types;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs = {}, parent) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+function txt(parent, x, y, s, attrs = {}) { const t = el("text", { x, y, ...attrs }, parent); t.textContent = s; return t; }
+const fmt = n => n.toLocaleString("en-US");
+const pct = (a, b) => Math.round(100 * a / b);
+
+// ---- facts
+const facts = [["Questions", fmt(D.vsibench.n), fmt(D.revsi.n)], ["Scenes", D.vsibench.scenes, D.revsi.scenes],
+  ["Source datasets", 3, 5], ["Tasks / types", "8 / 10", "7 / 13"], ["Debiased subset", "2,362", "none"]];
+document.getElementById("facts").innerHTML = facts.map(([k, a, b]) =>
+  `<div class="fact"><span class="k">${k}</span><span class="v"><span class="vsi">${a}</span> · <span class="rev">${b}</span></span></div>`).join("");
+
+// ---- 1: tasks, stacked by sub-type
+const TASKS = [
+  ["Appearance order", [["obj_appearance_order", "all"]], []],
+  ["Absolute distance", [["object_abs_distance", "all"]], [["object_abs_distance", "all"]]],
+  ["Object size", [["object_size_estimation", "all"]], [["object_size_estimation", "all"]]],
+  ["Relative distance", [["object_rel_distance", "closest"]], [["object_rel_distance_closest", "closest"], ["object_rel_distance_farthest", "farthest"]]],
+  ["Relative direction", [["object_rel_direction_easy", "left/right"], ["object_rel_direction_medium", "left/right/back"], ["object_rel_direction_hard", "quadrant"]],
+    [["object_rel_direction_forward_easy", "left/right/back"], ["object_rel_direction_backward_easy", "left/right/back, facing away"], ["object_rel_direction_forward_hard", "quadrant"], ["object_rel_direction_backward_hard", "quadrant, facing away"]]],
+  ["Counting", [["object_counting", "one category"]], [["object_counting_single", "one category"], ["object_counting_multiple", "two categories"]]],
+  ["Room size", [["room_size_estimation", "whole scene"]], [["room_size_estimation_multiple", "whole scene"], ["room_size_estimation_single", "main room"]]],
+  ["Route planning", [["route_planning", "all"]], [["route_planning", "all"]]],
+];
+(function () {
+  const svg = document.getElementById("ch-tasks"), W = 940, L = 150, top = 10, rowH = 46, barH = 17, max = 1400;
+  const H = top + TASKS.length * rowH + 28; svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.style.minWidth = "640px"; svg.style.width = "100%";
+  const x = v => L + (W - L - 60) * v / max;
+  for (let t = 0; t <= max; t += 200) { el("line", { x1: x(t), x2: x(t), y1: top, y2: H - 22, class: "grid" }, svg); txt(svg, x(t), H - 6, fmt(t), { class: "ax", "text-anchor": "middle" }); }
+  TASKS.forEach(([name, vs, rs], i) => {
+    const y = top + i * rowH;
+    txt(svg, 0, y + 25, name, { "font-size": 13, "font-weight": 500 });
+    [[vs, V, "vsi", 3], [rs, R, "rev", 3 + barH + 3]].forEach(([parts, src, key, dy]) => {
+      let acc = 0;
+      if (!parts.length) { txt(svg, x(0) + 4, y + dy + 13, key === "rev" ? "not in ReVSI" : "", { class: "ax", "font-style": "italic" }); return; }
+      parts.forEach(([qt, lab], j) => {
+        const n = src[qt].n, x0 = x(acc), w = x(acc + n) - x0;
+        const r = el("rect", { x: x0, y: y + dy, width: Math.max(w - 1, 1), height: barH, fill: `var(--${key})`, "fill-opacity": 1 - j * 0.22 }, svg);
+        el("title", {}, r).textContent = `${key === "vsi" ? "VSI-Bench" : "ReVSI"} ${qt}: ${fmt(n)} (${lab})`;
+        acc += n;
+      });
+      txt(svg, x(acc) + 5, y + dy + 13, fmt(acc), { class: "ax" });
+    });
+  });
+  document.getElementById("legend-types").innerHTML =
+    `<span><i style="background:var(--vsi)"></i>VSI-Bench</span><span><i style="background:var(--rev)"></i>ReVSI</span><span>lighter segments = sub-types (hover for names)</span>`;
+})();
+
+// ---- 2: template diff table
+const PAIRS = [
+  ["Absolute distance", "object_abs_distance", "object_abs_distance"],
+  ["Object size", "object_size_estimation", "object_size_estimation"],
+  ["Counting", "object_counting", "object_counting_single"],
+  ["Counting, two categories", null, "object_counting_multiple"],
+  ["Relative distance, closest", "object_rel_distance", "object_rel_distance_closest"],
+  ["Relative distance, farthest", null, "object_rel_distance_farthest"],
+  ["Direction: left or right (2 options)", "object_rel_direction_easy", null],
+  ["Direction: left / right / back (VSI medium = ReVSI forward easy)", "object_rel_direction_medium", "object_rel_direction_forward_easy"],
+  ["Direction: left / right / back, facing away", null, "object_rel_direction_backward_easy"],
+  ["Direction: quadrant (VSI hard = ReVSI forward hard)", "object_rel_direction_hard", "object_rel_direction_forward_hard"],
+  ["Direction: quadrant, facing away", null, "object_rel_direction_backward_hard"],
+  ["Room size, whole scene", "room_size_estimation", "room_size_estimation_multiple"],
+  ["Room size, main room", null, "room_size_estimation_single"],
+  ["Route planning (most common shape)", "route_planning", "route_planning"],
+  ["Appearance order", "obj_appearance_order", null],
+];
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const tok = s => s.replace(/\s+/g, " ").trim().split(" ");
+function diff(a, b) {
+  const A = tok(a), B = tok(b), n = A.length, m = B.length, L = Array.from({ length: n + 1 }, () => new Int16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i].toLowerCase() === B[j].toLowerCase() ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const oa = [], ob = []; let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (A[i].toLowerCase() === B[j].toLowerCase()) { oa.push(w(A[i])); ob.push(w(B[j])); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) oa.push(`<del>${w(A[i++])}</del>`); else ob.push(`<ins>${w(B[j++])}</ins>`);
+  }
+  while (i < n) oa.push(`<del>${w(A[i++])}</del>`); while (j < m) ob.push(`<ins>${w(B[j++])}</ins>`);
+  return [oa.join(" "), ob.join(" ")];
+}
+function w(s) { return esc(s).replace(/…/g, '<span class="slot">…</span>'); }
+function tmpl(t) { return t.templates[0].template; }
+(function () {
+  let h = `<thead><tr><th>Question type</th><th>VSI-Bench template</th><th class="num">n</th><th>ReVSI template</th><th class="num">n</th></tr></thead><tbody>`;
+  for (const [name, v, r] of PAIRS) {
+    const tv = v && V[v], tr = r && R[r];
+    let a = tv ? w(tmpl(tv)) : `<span class="tag new">new in ReVSI</span>`, b = tr ? w(tmpl(tr)) : `<span class="tag gone">not in ReVSI</span>`;
+    if (tv && tr) [a, b] = diff(tmpl(tv), tmpl(tr));
+    const ex = (t, cls) => t ? `<div class="muted" style="margin-top:6px;font-family:var(--f-body);font-size:0.78rem">e.g. ${esc(t.examples[0].replace(/\n/g, " "))}</div>` : "";
+    h += `<tr><td><b>${esc(name)}</b>${tv && tr && v !== r ? `<div class="muted" style="font-size:0.75rem"><code>${v}</code><br><code>${r}</code></div>` : ""}</td>
+      <td class="tmpl">${a}${ex(tv)}</td><td class="num">${tv ? fmt(tv.n) : ""}</td><td class="tmpl">${b}${ex(tr)}</td><td class="num">${tr ? fmt(tr.n) : ""}</td></tr>`;
+  }
+  document.getElementById("tbl-templates").innerHTML = h + "</tbody>";
+})();
+
+// ---- 3a: direction answer shares (100 % bars)
+function hbar100(id, rows, cats, colors, labelW = 210) {
+  const svg = document.getElementById(id), W = 470, rowH = 30, top = 4, H = top + rows.length * rowH + 40;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.style.width = "100%"; svg.style.minWidth = "420px";
+  const x = v => labelW + (W - labelW - 6) * v;
+  rows.forEach(([lab, key, counts], i) => {
+    const y = top + i * rowH, tot = cats.reduce((s, c) => s + (counts[c] || 0), 0); let acc = 0;
+    txt(svg, labelW - 8, y + 16, lab, { "text-anchor": "end", "font-size": 11.5, fill: `var(--${key})` });
+    cats.forEach((c, j) => {
+      const v = (counts[c] || 0) / tot; if (!v) return;
+      const r = el("rect", { x: x(acc), y: y + 3, width: Math.max(x(acc + v) - x(acc) - 1, 0.8), height: 20, fill: colors[j] }, svg);
+      el("title", {}, r).textContent = `${c}: ${counts[c]} of ${tot} (${(100 * v).toFixed(1)} %)`;
+      if (v > 0.09) txt(svg, x(acc + v / 2), y + 17, `${Math.round(100 * v)}%`, { "text-anchor": "middle", "font-size": 10.5, fill: "#fff" });
+      acc += v;
+    });
+  });
+  let lx = 0; const ly = H - 14;
+  cats.forEach((c, j) => { el("rect", { x: lx, y: ly - 9, width: 10, height: 10, fill: colors[j] }, svg); txt(svg, lx + 14, ly, c, { class: "ax" }); lx += 14 + c.length * 6.2 + 14; });
+}
+const dirCats = ["left", "right", "back", "front-left", "front-right", "back-left", "back-right"];
+const dirCol = ["#5f7fbf", "#8aa6d6", "#c0563b", "#4f8f6b", "#86bd9b", "#c98a3a", "#e3b36b"];
+hbar100("ch-dir", [
+  ["VSI easy (left/right)", "vsi", V.object_rel_direction_easy.answer_values],
+  ["VSI medium", "vsi", V.object_rel_direction_medium.answer_values],
+  ["ReVSI forward easy", "rev", R.object_rel_direction_forward_easy.answer_values],
+  ["ReVSI backward easy", "rev", R.object_rel_direction_backward_easy.answer_values],
+  ["VSI hard", "vsi", V.object_rel_direction_hard.answer_values],
+  ["ReVSI forward hard", "rev", R.object_rel_direction_forward_hard.answer_values],
+  ["ReVSI backward hard", "rev", R.object_rel_direction_backward_hard.answer_values],
+], dirCats, dirCol, 150);
+// ---- 3b: letters
+const mcRows = [];
+for (const [src, key, pre] of [[V, "vsi", "VSI"], [R, "rev", "ReVSI"]])
+  for (const [qt, e] of Object.entries(src)) if (e.mc && qt !== "obj_appearance_order") mcRows.push([`${pre} ${qt.replace(/^obj(ect)?_/, "").replace(/_/g, " ").replace("rel direction", "dir").replace("rel distance", "rel dist")}`, key, e.answer_letters]);
+hbar100("ch-letters", mcRows, ["A", "B", "C", "D"], ["#6d7f9e", "#9aa8c0", "#b08a6a", "#d4b79c"], 170);
+// ---- 3c: turns
+(function () {
+  const svg = document.getElementById("ch-turns"), W = 470, H = 190, L = 34, B = 160, max = 60;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.style.width = "100%"; svg.style.minWidth = "380px";
+  const turns = src => { const b = src.route_planning.blanks, out = {}; let tot = 0; for (const k in b) { out[+k - 1] = b[k]; tot += b[k]; } return [out, tot]; };
+  const [vt, vn] = turns(V), [rt, rn] = turns(R), y = v => B - (B - 12) * v / max;
+  for (let t = 0; t <= max; t += 20) { el("line", { x1: L, x2: W, y1: y(t), y2: y(t), class: "grid" }, svg); txt(svg, L - 6, y(t) + 4, `${t}%`, { class: "ax", "text-anchor": "end" }); }
+  [1, 2, 3, 4].forEach((k, i) => {
+    const gx = L + 20 + i * 105;
+    [[vt, vn, "vsi"], [rt, rn, "rev"]].forEach(([c, n, key], j) => {
+      const v = 100 * (c[k] || 0) / n, r = el("rect", { x: gx + j * 36, y: y(v), width: 32, height: B - y(v), fill: `var(--${key})` }, svg);
+      el("title", {}, r).textContent = `${key === "vsi" ? "VSI-Bench" : "ReVSI"}: ${c[k] || 0} of ${n}`;
+      txt(svg, gx + j * 36 + 16, y(v) - 4, `${Math.round(v)}%`, { class: "ax", "text-anchor": "middle" });
+    });
+    txt(svg, gx + 34, B + 18, `${k} turn${k > 1 ? "s" : ""}`, { class: "ax", "text-anchor": "middle" });
+  });
+})();
+// ---- 3d: options table
+(function () {
+  const rows = [];
+  for (const [src, pre] of [[V, "VSI-Bench"], [R, "ReVSI"]]) for (const [qt, e] of Object.entries(src)) if (e.mc)
+    rows.push(`<tr><td>${pre}</td><td><code>${qt}</code></td><td class="num">${Object.entries(e.n_options).map(([k, v]) => `${k}: ${fmt(v)}`).join(", ")}</td></tr>`);
+  document.getElementById("tbl-opts").innerHTML = `<thead><tr><th>Benchmark</th><th>Type</th><th class="num">options: questions</th></tr></thead><tbody>${rows.join("")}</tbody>`;
+})();
+
+// ---- 4: numeric ranges (log box plots)
+(function () {
+  const rows = [
+    ["Absolute distance (m)", V.object_abs_distance.gt, R.object_abs_distance.gt],
+    ["Object size (cm)", V.object_size_estimation.gt, R.object_size_estimation.gt],
+    ["Counting, one category", V.object_counting.gt, R.object_counting_single.gt],
+    ["Counting, two categories", null, R.object_counting_multiple.gt],
+    ["Room size, whole scene (m²)", V.room_size_estimation.gt, R.room_size_estimation_multiple.gt],
+    ["Room size, main room (m²)", null, R.room_size_estimation_single.gt],
+  ];
+  const svg = document.getElementById("ch-num"), W = 940, L = 190, top = 6, rowH = 50, H = top + rows.length * rowH + 26;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.style.width = "100%"; svg.style.minWidth = "640px";
+  const lo = Math.log10(0.3), hi = Math.log10(700), x = v => L + (W - L - 20) * (Math.log10(v) - lo) / (hi - lo);
+  [0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500].forEach(t => { el("line", { x1: x(t), x2: x(t), y1: top, y2: H - 20, class: "grid" }, svg); txt(svg, x(t), H - 5, t, { class: "ax", "text-anchor": "middle" }); });
+  rows.forEach(([lab, v, r], i) => {
+    const y = top + i * rowH; txt(svg, 0, y + 27, lab, { "font-size": 12.5, "font-weight": 500 });
+    [[v, "vsi", 6], [r, "rev", 26]].forEach(([g, key, dy]) => {
+      if (!g) return; const cy = y + dy + 8;
+      el("line", { x1: x(g.min), x2: x(g.max), y1: cy, y2: cy, stroke: `var(--${key})`, "stroke-width": 1.2 }, svg);
+      [g.min, g.max].forEach(t => el("line", { x1: x(t), x2: x(t), y1: cy - 5, y2: cy + 5, stroke: `var(--${key})`, "stroke-width": 1.2 }, svg));
+      const b = el("rect", { x: x(g.p25), y: cy - 7, width: Math.max(x(g.p75) - x(g.p25), 2), height: 14, fill: `var(--${key}-soft)`, stroke: `var(--${key})` }, svg);
+      el("title", {}, b).textContent = `min ${g.min}, 25% ${g.p25}, median ${g.median}, 75% ${g.p75}, max ${g.max}`;
+      el("line", { x1: x(g.median), x2: x(g.median), y1: cy - 7, y2: cy + 7, stroke: `var(--${key})`, "stroke-width": 2.4 }, svg);
+      txt(svg, x(g.max) + 6, cy + 4, `median ${g.median}`, { class: "ax" });
+    });
+  });
+})();
+
+// ---- 5: datasets
+(function () {
+  const order = [["scannet", "ScanNetv2", "ScanNet"], ["arkitscenes", "ARKitScenes", "ARKitScenes"], ["scannetpp", "ScanNetPPv2", "ScanNet++"], [null, "3RScan", "3RScan"], [null, "MultiScan", "MultiScan"]];
+  const cols = ["#5b7db8", "#c9874f", "#6aa58a", "#a27bb5", "#c46a7a"];
+  const svg = document.getElementById("ch-ds"), W = 940, L = 100, H = 104;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.style.width = "100%"; svg.style.minWidth = "560px";
+  const x = v => L + (W - L - 10) * v;
+  [["VSI-Bench", "vsi", D.vsibench, 0], ["ReVSI", "rev", D.revsi, 1]].forEach(([lab, key, b, i]) => {
+    const y = 8 + i * 46; txt(svg, 0, y + 22, lab, { "font-size": 13, "font-weight": 600, fill: `var(--${key})` }); let acc = 0;
+    order.forEach(([vk, rk, name], j) => {
+      const n = b.datasets[i ? rk : vk] || 0; if (!n) return; const v = n / b.n;
+      const r = el("rect", { x: x(acc), y, width: x(acc + v) - x(acc) - 1, height: 32, fill: cols[j] }, svg);
+      el("title", {}, r).textContent = `${name}: ${fmt(n)} questions`;
+      if (v > 0.07) txt(svg, x(acc + v / 2), y + 21, `${name} ${Math.round(100 * v)}%`, { "text-anchor": "middle", "font-size": 11.5, fill: "#fff" });
+      acc += v;
+    });
+  });
+  document.getElementById("legend-ds").innerHTML = order.map(([, , n], j) => `<span><i style="background:${cols[j]}"></i>${n}</span>`).join("") + "<span>share of each benchmark's questions</span>";
+})();
+
+
+// ---- 6: overlap
+(function () {
+  const O = D.overlap, names = {abs_dist: "Absolute distance", obj_size: "Object size", count: "Counting", room_size: "Room size (whole scene)",
+    rel_dist: "Relative distance", rel_dir_3way: "Direction, left/right/back", rel_dir_quad: "Direction, quadrants", route: "Route planning"};
+  const keys = ["count", "obj_size", "room_size", "abs_dist", "rel_dist", "rel_dir_3way", "rel_dir_quad", "route"];
+  const svg = document.getElementById("ch-overlap"), W = 940, L = 190, top = 6, rowH = 34, H = top + keys.length * rowH + 26, max = 800;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.style.width = "100%"; svg.style.minWidth = "640px";
+  const x = v => L + (W - L - 150) * v / max;
+  for (let t = 0; t <= max; t += 100) { el("line", { x1: x(t), x2: x(t), y1: top, y2: H - 20, class: "grid" }, svg); txt(svg, x(t), H - 5, t, { class: "ax", "text-anchor": "middle" }); }
+  keys.forEach((k, i) => {
+    const g = O.groups[k], y = top + i * rowH;
+    txt(svg, 0, y + 19, names[k], { "font-size": 12.5, "font-weight": 500 });
+    const r0 = el("rect", { x: x(0), y: y + 5, width: x(g.vsi_shared_scenes) - x(0), height: 20, fill: "var(--vsi-soft)", stroke: "var(--vsi)", "stroke-width": 0.8 }, svg);
+    el("title", {}, r0).textContent = `${g.vsi_shared_scenes} VSI-Bench questions in shared scenes (of ${g.vsi_n})`;
+    if (g.same_objects) {
+      const r1 = el("rect", { x: x(0), y: y + 5, width: Math.max(x(g.same_objects) - x(0), 2), height: 20, fill: "var(--vsi)" }, svg);
+      el("title", {}, r1).textContent = `${g.same_objects} asked again in ReVSI`;
+      const r2 = el("rect", { x: x(0), y: y + 10, width: Math.max(x(g.same_answer) - x(0), 2), height: 10, fill: "var(--add)" }, svg);
+      el("title", {}, r2).textContent = `${g.same_answer} with the same answer`;
+    }
+    txt(svg, x(g.vsi_shared_scenes) + 6, y + 19, g.same_objects ? `${g.same_objects} repeated · ${g.same_answer} same answer` : "none repeated",
+      { class: "ax", "font-weight": g.same_objects ? 400 : 600 });
+  });
+  const sc = [["ScanNet++", 50, 48, 48], ["ARKitScenes", 150, 170, 121], ["ScanNet", 88, 92, 53], ["3RScan", 0, 46, 0], ["MultiScan", 0, 24, 0], ["All", 288, 380, 222]];
+  document.getElementById("tbl-scenes").innerHTML = `<thead><tr><th>Dataset</th><th class="num">VSI-Bench</th><th class="num">ReVSI</th><th class="num">shared</th></tr></thead><tbody>` +
+    sc.map(([d, a, b, c]) => `<tr${d === "All" ? ' style="font-weight:600"' : ""}><td>${d}</td><td class="num">${a}</td><td class="num">${b}</td><td class="num">${c}</td></tr>`).join("") + "</tbody>";
+  const short = q => q.replace(/\s+/g, " ").replace(/^What is the length of the longest dimension \(length, width, or height\) of the (.+?), measured in centimeters\?$/, "size of the $1 (cm)")
+    .replace(/^How many (.+?)\(s\) are in this room\?$/, "how many $1(s)").replace(/^What is the size of this room.*$/, "room size (m²)");
+  const pick = [...O.examples.filter(e => e.task === "count").slice(0, 4), ...O.examples.filter(e => e.task === "obj_size").slice(0, 4), ...O.examples.filter(e => e.task === "room_size").slice(0, 2)];
+  document.getElementById("tbl-diffs").innerHTML = `<thead><tr><th>Scene</th><th>Question</th><th class="num">VSI-Bench</th><th class="num">ReVSI</th></tr></thead><tbody>` +
+    pick.map(e => `<tr><td><code>${esc(e.scene)}</code></td><td>${esc(short(e.vsi_q))}</td><td class="num vsi">${e.vsi_gt}</td><td class="num rev">${e.revsi_gt}</td></tr>`).join("") + "</tbody>";
+  const ex = [["VSI-Bench", "vsi", "cutting board", "trash can, refrigerator, blanket, pillow", "trash can"],
+              ["ReVSI", "rev", "cutting board", "single-bowl kitchen sink, router, floor lamp, mat", "mat"],
+              ["VSI-Bench", "vsi", "microwave", "tv, trash can, pillow, cutting board", "trash can"],
+              ["ReVSI", "rev", "microwave", "chair, remote controller, cutting board, multi-cooker", "multi-cooker"]];
+  document.getElementById("tbl-scene").innerHTML = `<thead><tr><th>Benchmark</th><th>Closest to the …</th><th>Options</th><th>Answer</th></tr></thead><tbody>` +
+    ex.map(([b, k, r, o, a]) => `<tr><td class="${k}">${b}</td><td>${r}</td><td>${o}</td><td>${a}</td></tr>`).join("") + "</tbody>";
+})();
+
+// ---- 7: Claude table
+(function () {
+  const cols = ["Overall", "App. order", "Abs. dist", "Counting", "Rel. dist", "Obj. size", "Room size", "Route", "Rel. dir"];
+  const rows = [["VSI-Bench, full (5,130)", "vsi", [82.7, 44.6, 96.5, 99.0, 100.0, 99.9, 62.6, 58.8, 100.0]],
+    ["VSI-Bench, 7 tasks (no app. order)", "vsi", [88.1, null, 96.5, 99.0, 100.0, 99.9, 62.6, 58.8, 100.0]],
+    ["ReVSI 64-frame (6,616)", "rev", [93.7, null, 99.7, 99.8, 99.6, 100.0, 68.4, 88.2, 100.0]]];
+  document.getElementById("tbl-claude").innerHTML = `<thead><tr><th>Claude Opus 5.5, GT scene, no code</th>${cols.map(c => `<th class="num">${c}</th>`).join("")}</tr></thead><tbody>` +
+    rows.map(([n, k, v]) => `<tr><td class="${k}">${n}</td>${v.map((x, i) => `<td class="num"${i === 0 ? ' style="font-weight:600"' : ""}>${x == null ? "–" : x.toFixed(1)}</td>`).join("")}</tr>`).join("") + "</tbody>";
+})();
+</script>
