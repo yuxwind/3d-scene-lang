@@ -4,8 +4,10 @@
 Same metric as playground/zeroshot_revsi/eval_revsi.py (lmms-eval revsi): first word of the answer; multiple choice
 exact match on the letter; numbers MRA over thresholds .50-.95 (rel. error <= 1 - thr); 13 subtypes averaged into
 7 tasks (rel. direction 4, rel. distance 2, counting 2, room size 2); overall = mean of the 7.
-usage: revsi_score_answers.py RUN_DIR [--by-dataset] [--json OUT]
-prints: answered/total, overall, the 7 tasks (n). stdlib only.
+usage: revsi_score_answers.py RUN_DIR [--gt ROWS] [--by-dataset] [--json OUT]
+  --gt: GT rows, default RUN_DIR/rows.jsonl (jz runs). A .parquet (e.g. /scr/xinyu/data/ReVSI/64_frame/
+        test-00000-of-00001.parquet, for gandalf claude_nocode_s3/revsi_gt) is read with pandas (training env).
+prints: answered/total, overall, the 7 tasks (n). stdlib only, except --gt *.parquet.
 """
 import argparse, collections, glob, json, os
 
@@ -42,7 +44,7 @@ def score(rows):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("run_dir"); ap.add_argument("--by-dataset", action="store_true")
-    ap.add_argument("--json"); a = ap.parse_args()
+    ap.add_argument("--json"); ap.add_argument("--gt"); a = ap.parse_args()
     A = {}
     for f in glob.glob(os.path.join(a.run_dir, "out", "*.json")):
         if f.endswith(".meta.json"):
@@ -51,7 +53,12 @@ def main():
             A.update({str(k): v for k, v in json.load(open(f))["answers"].items()})
         except Exception:
             pass
-    rows = [json.loads(l) for l in open(os.path.join(a.run_dir, "rows.jsonl"))]
+    gt = a.gt or os.path.join(a.run_dir, "rows.jsonl")
+    if gt.endswith(".parquet"):
+        import pandas as pd
+        rows = [{k: r[k] for k in ("id", "question_type", "ground_truth", "dataset")} for r in pd.read_parquet(gt).to_dict("records")]
+    else:
+        rows = [json.loads(l) for l in open(gt)]
     got = [dict(r, acc=acc(r["question_type"], A[str(r["id"])], r["ground_truth"])) for r in rows if str(r["id"]) in A]
     cost = sum(json.load(open(m)).get("total_cost_usd", 0) or 0 for m in glob.glob(os.path.join(a.run_dir, "out", "*.meta.json")))
     ov, o = score(got)
