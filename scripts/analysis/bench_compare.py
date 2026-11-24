@@ -137,10 +137,18 @@ def answer(gt, o):
     return re.sub(r"^[a-d]\.\s*", "", x.lower())
 
 
-def overlap(vsi, rv, json_out=None):
+def overlap(vsi, rv, json_out=None, show=None):
     """Same scenes, then same question (normalized wording) or same objects, then same options / answer."""
     vsi = vsi.assign(scene=vsi["dataset"].map(DSMAP) + "/" + vsi["scene_name"].astype(str))
     rv = rv.assign(scene=rv["dataset"] + "/" + rv["scene_id"].astype(str))
+    if show:
+        g = {x[0]: x for x in GROUPS}[show[1]]
+        for name, df, qt in (("VSI-Bench", vsi, g[1]), ("ReVSI", rv, g[2])):
+            sub = df[(df.scene == show[0]) & (df.question_type == qt)]
+            print(f"== {name} {qt} in {show[0]}: {len(sub)}")
+            for r in sub.head(12).itertuples():
+                print(f"  {norm_q(r.question)[:170]} | opts {opt_texts(r.options)} | gt {answer(r.ground_truth, r.options)}")
+        return
     sv, sr = set(vsi["scene"]), set(rv["scene"])
     both = sv & sr
     print(f"scenes: VSI-Bench {len(sv)}, ReVSI {len(sr)}, shared {len(both)}")
@@ -213,6 +221,8 @@ def overlap(vsi, rv, json_out=None):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--overlap", action="store_true", help="match questions across the two benchmarks instead")
+    ap.add_argument("--show", nargs=2, metavar=("SCENE", "TASK"), help="with --overlap: print both sets' questions + answers "
+                    "for one scene (e.g. ScanNetPPv2/09c1414f1b) and task group (abs_dist, rel_dist, rel_dir_3way, ...)")
     ap.add_argument("--vsi", default="/scr/xinyu/data/VSI-Bench/test.jsonl")
     ap.add_argument("--vsi-debiased", default="/scr/xinyu/data/VSI-Bench/test_debiased.parquet")
     ap.add_argument("--revsi", default="/scr/xinyu/data/ReVSI/64_frame/test-00000-of-00001.parquet")
@@ -222,7 +232,7 @@ def main():
     deb = set(pd.read_parquet(a.vsi_debiased)["id"])
     rv = pd.read_parquet(a.revsi)
     if a.overlap:
-        return overlap(vsi, rv, a.json)
+        return overlap(vsi, rv, a.json, a.show)
     out = {"vsibench": summarize(vsi, "VSI-Bench", "scene_name", deb), "revsi": summarize(rv, "ReVSI (64 frames)", "scene_id")}
     for b in out.values():
         print(f"== {b['name']}: {b['n']} questions, {b['scenes']} scenes, datasets {b['datasets']}")
