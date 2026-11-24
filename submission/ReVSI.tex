@@ -1,0 +1,50 @@
+% Qwen on ReVSI: zero-shot base models; the fine-tuned Qwen3.5-4B (Exp1) is not yet evaluated on ReVSI.
+% Fragment for \input{ReVSI}; needs \usepackage{booktabs}. Claude reference: tab:claude-revsi in claude.tex.
+% Sources: jz <clone>/playground/zeroshot_revsi/{qwen3vl_2b,qwen35_4b,...}/results_merged.json (eval_revsi.py,
+% job.slurm = 1 fps, job_allframes.slurm = all 64 frames); numbers as copied into docs/update_deck_repro.py (REVSI_ROWS).
+% Data: ReVSI Hugging Face release, 64_frame/test-00000-of-00001.parquet (jz: $WORK/data/ReVSI).
+
+\section{Qwen on ReVSI}
+\label{sec:revsi-qwen}
+
+\paragraph{Setup.}
+We run the unmodified Qwen3-VL-2B-Instruct and Qwen3.5-4B on the ReVSI 64-frame subset (6,616 questions,
+380 videos, seven tasks, no appearance order task), video only. Prompts and scoring follow the official
+lmms-eval ReVSI task: pre-prompt ``These are frames of a video.'', the VSI-Bench multiple-choice post-prompt, and
+``Answer the question using a single integer or decimal number.'' for numeric questions; greedy decoding, at most
+16 new tokens, no system prompt, thinking off; the first word of the output is scored by exact match (multiple
+choice) or MRA over thresholds $0.50{:}0.95{:}0.05$ (numeric). The question types of a task are averaged and
+``Avg.'' is the mean over the tasks. Frames are sampled in two ways: at 1 fps with at most 64 frames, as in our
+VSI-Bench evaluation (152 of the 380 videos then get fewer than 64 frames), or all 64 frames that ReVSI provides
+(ReVSI's own protocol). The two agree within 1.8 points on every task and within 0.3 on the average.
+
+\paragraph{Results.}
+Table~\ref{tab:revsi-qwen} gives the scores. Zero-shot Qwen3.5-4B reaches 45.3 and Qwen3-VL-2B 44.4, far below
+Claude Opus~5.5 given the ground-truth scene as text (93.7, Table~\ref{tab:claude-revsi}). The fine-tuned
+Qwen3.5-4B (Exp1, \texttt{novggt\_qwen35\_4b\_reason190k\_mixv2\_1\_objq}; 70.4 on VSI-Bench with the
+VGGT-SLAM + SAM~3 scene) has not been evaluated on ReVSI yet. ReVSI is a clean test for it: none of the 190k
+training rows comes from a ReVSI scene.
+
+\begin{table}[t]
+\centering
+\caption{Zero-shot Qwen on ReVSI (64-frame subset, 6,616 questions), video only. Accuracy (multiple choice) or MRA
+(numeric); ``Avg.'' is the mean over the seven tasks. ReVSI has no appearance order task. The fine-tuned
+Qwen3.5-4B is not yet evaluated.}
+\label{tab:revsi-qwen}
+\small
+\begin{tabular}{lrrrrrrrr}
+\toprule
+Model & Obj.\ Cnt. & Abs.\ Dist. & Obj.\ Size & Room Size & Rel.\ Dist. & Rel.\ Dir. & Route Plan & Avg. \\
+\midrule
+\multicolumn{9}{l}{\emph{1 fps, at most 64 frames (our VSI-Bench protocol)}} \\
+Qwen3-VL-2B & 37.9 & 44.6 & 64.7 & 41.6 & 41.4 & 33.2 & 45.2 & 44.1 \\
+Qwen3.5-4B  & 31.8 & 50.7 & 59.1 & 48.4 & 48.7 & 43.6 & 34.4 & 45.2 \\
+\midrule
+\multicolumn{9}{l}{\emph{All 64 provided frames (ReVSI protocol)}} \\
+Qwen3-VL-2B & 37.9 & 46.4 & 65.1 & 40.1 & 41.6 & 33.0 & 46.6 & 44.4 \\
+Qwen3.5-4B  & 31.9 & 51.4 & 59.6 & 47.5 & 49.4 & 43.5 & 34.1 & \textbf{45.3} \\
+\midrule
+Qwen3.5-4B fine-tuned (Exp1) & -- & -- & -- & -- & -- & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
