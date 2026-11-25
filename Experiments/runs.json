@@ -157,5 +157,22 @@
     "result_n": 367,
     "recorded": "2026-11-25 19:28",
     "commit": "298f096"
+  },
+  {
+    "time": "2026-11-25 19:58",
+    "name": "code_solver_revsi_s3est_threshold",
+    "host": "gandalf",
+    "description": "Code solver (data/revsi_gt_scene/code_solver.py --rows) on ReVSI 64-frame (6,616 q), predicted scene at estimated scale: SAM 3 + VGGT-SLAM boxes with score >= 0.7 (the Exp1 list). Lists built by data/scenelang_revsi_slam/oracle_lists.py @9b42b2a (oracle/oraclecnt). No model, no video, CPU only. Route planning not computable (0); 2252 questions without an answer (a named object has no box). Scored by revsi_score_answers.py --gt parquet. Tasks: abs_dist 35.5, count 57.6, rel_dir 31.3, rel_dist 44.5, obj_size 43.0, room 44.9, route 0.0; mean of the 6 tasks without route 42.8",
+    "inputs": [
+      "/scr/xinyu/projects/3d-scene-lang/data/scenelang_revsi_slam/rows_s3q_roomdoor_full.jsonl",
+      "/scr/xinyu/projects/VGGT-SLAM/exps/vsibench_objects/revsi"
+    ],
+    "output": "/scr/xinyu/projects/3d-scene-lang/runs/code_solver/revsi_s3est_threshold",
+    "result": "/scr/xinyu/projects/3d-scene-lang/runs/code_solver/revsi_s3est_threshold/out",
+    "status": "done",
+    "status_info": "36.7 overall (route 0), 6 tasks 42.8",
+    "result_n": 1,
+    "recorded": "2026-11-25 20:05",
+    "commit": "9b42b2a"
   }
 ]
