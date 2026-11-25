@@ -37,7 +37,7 @@ python eval_base.py --out_dir <dir> --merge && python summarize.py <dir>   # sco
 | Relative direction (acc) | 0.4232 |
 | Route planning (acc) | 0.2887 |
 
-For reference, the trained 2B runs in EXPERIMENTS.md score `main` 0.6000 and `text256` 0.6060. Those
+For reference, the trained 2B runs in Experiments/EXPERIMENTS.md score `main` 0.6000 and `text256` 0.6060. Those
 numbers come from the original cached-feature runs, so the comparison is approximate. Our rerun of
 `main` scores 0.5992 (see "Fine-tuned: Perceiver + VGGT-Omega" below).
 

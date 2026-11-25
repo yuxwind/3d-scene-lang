@@ -1,7 +1,7 @@
 # sr_vggt
 
 Spatial-reasoning finetuning of Qwen3-VL with geometry features from a frozen VGGT model, trained
-and evaluated on the IDRIS Jean Zay cluster. [EXPERIMENTS.md](EXPERIMENTS.md) lists every
+and evaluated on the IDRIS Jean Zay cluster. [Experiments/EXPERIMENTS.md](Experiments/EXPERIMENTS.md) lists every
 configuration and the scores of the original runs. [CLUSTER_NOTES.md](CLUSTER_NOTES.md) collects
 the Jean Zay pitfalls.
 
