@@ -174,5 +174,22 @@
     "result_n": 1,
     "recorded": "2026-11-25 20:05",
     "commit": "9b42b2a"
+  },
+  {
+    "time": "2026-11-25 20:01",
+    "name": "code_solver_revsi_s3est_oracle",
+    "host": "gandalf",
+    "description": "Code solver (data/revsi_gt_scene/code_solver.py --rows) on ReVSI 64-frame (6,616 q), predicted scene at estimated scale: oracle list: all candidates matched one-to-one to ReVSI GT boxes (Hungarian after box-to-box registration; IoU >= 0.1 or centre within max(0.5 m, 0.5 x GT longest side)); 327/380 scenes registered, 72.1% of GT objects kept. Lists built by data/scenelang_revsi_slam/oracle_lists.py @9b42b2a (oracle/oraclecnt). No model, no video, CPU only. Route planning not computable (0); 1481 questions without an answer (a named object has no box). Scored by revsi_score_answers.py --gt parquet. Tasks: abs_dist 51.1, count 70.8, rel_dir 57.8, rel_dist 69.4, obj_size 46.2, room 43.7, route 0.0; mean of the 6 tasks without route 56.5",
+    "inputs": [
+      "/scr/xinyu/projects/3d-scene-lang/data/scenelang_revsi_slam/rows_s3q_rr_oracle_full.jsonl",
+      "/scr/xinyu/projects/VGGT-SLAM/exps/vsibench_objects/revsi"
+    ],
+    "output": "/scr/xinyu/projects/3d-scene-lang/runs/code_solver/revsi_s3est_oracle",
+    "result": "/scr/xinyu/projects/3d-scene-lang/runs/code_solver/revsi_s3est_oracle/out",
+    "status": "done",
+    "status_info": "48.4 overall (route 0), 6 tasks 56.5",
+    "result_n": 1,
+    "recorded": "2026-11-25 20:05",
+    "commit": "9b42b2a"
   }
 ]
