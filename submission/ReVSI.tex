@@ -1,48 +1,88 @@
-% Qwen on ReVSI: zero-shot base models; the fine-tuned Qwen3.5-4B (Exp1) is not yet evaluated on ReVSI.
-% Fragment for \input{ReVSI}; needs \usepackage{booktabs}. Claude reference: tab:claude-revsi in claude.tex.
-% Sources: jz <clone>/playground/zeroshot_revsi/{qwen3vl_2b,qwen35_4b,...}/results_merged.json (eval_revsi.py,
-% job.slurm = 1 fps, job_allframes.slurm = all 64 frames); numbers as copied into docs/update_deck_repro.py (REVSI_ROWS).
-% Data: ReVSI Hugging Face release, 64_frame/test-00000-of-00001.parquet (jz: $WORK/data/ReVSI).
+% Qwen on ReVSI: zero-shot base models, fine-tuned Qwen3.5-4B (video only; video + ground-truth scene), and Exp1 with
+% the SAM 3 + VGGT-SLAM scene at estimated scale.
+% Fragment for \input{ReVSI}; needs \usepackage{booktabs} and graphicx. Claude reference: tab:claude-revsi in claude.tex.
+% Sources (all also in Experiments/runs.md, names revsi_*):
+%  - zero-shot and the two fine-tuned rows: jz <clone>/playground/zeroshot_revsi/{qwen3vl_2b,qwen3vl_2b_allframes,qwen35_4b,
+%    qwen35_4b_allframes,ft_q35_video_743,ft_q35vs_video_gtscene_569}/results_merged.json (eval_revsi.py; job.slurm = 1 fps,
+%    job_allframes.slurm = all 64 frames, job_ft.slurm = fine-tuned, Slurm 546996, 2026-11-21).
+%  - Exp1 rows: gandalf /scr/xinyu/projects/3d-scene-lang/runs/eval_q35vs_gandalf/revsi_exp1_s3q_rr_{mixv2,full}_rvs_question,
+%    rows data/scenelang_revsi_slam/rows_s3q_roomdoor_{mixv2,full}.jsonl, scored with data/scenelang_revsi_slam/score_revsi_preds.py
+%    (re-run 2026-11-25 at ca81a64: 56.6 and 57.1).
+% Data: ReVSI Hugging Face release, 64_frame/test-00000-of-00001.parquet (jz: $WORK/data/ReVSI; gandalf: /scr/xinyu/data/ReVSI).
 
 \section{Qwen on ReVSI}
 \label{sec:revsi-qwen}
 
 \paragraph{Setup.}
-We run the unmodified Qwen3-VL-2B-Instruct and Qwen3.5-4B on the ReVSI 64-frame subset (6,616 questions,
-380 videos, seven tasks, no appearance order task), video only. Prompts and scoring follow the official
-lmms-eval ReVSI task: pre-prompt ``These are frames of a video.'', the VSI-Bench multiple-choice post-prompt, and
-``Answer the question using a single integer or decimal number.'' for numeric questions; greedy decoding, at most
-16 new tokens, no system prompt, thinking off; the first word of the output is scored by exact match (multiple
-choice) or MRA over thresholds $0.50{:}0.95{:}0.05$ (numeric). The question types of a task are averaged and
-``Avg.'' is the mean over the tasks. Frames are sampled in two ways: at 1 fps with at most 64 frames, as in our
-VSI-Bench evaluation (152 of the 380 videos then get fewer than 64 frames), or all 64 frames that ReVSI provides
-(ReVSI's own protocol). The two agree within 1.8 points on every task and within 0.3 on the average.
+All runs use the ReVSI 64-frame subset (6,616 questions, 380 videos, seven tasks; ReVSI has no appearance order
+task). Scores are accuracy (multiple choice) or MRA over thresholds $0.50{:}0.95{:}0.05$ (numeric), and ``Avg.''
+is the mean over the seven tasks. ReVSI is a clean test for our fine-tuned models: none of the 190k training rows
+comes from a ReVSI scene.
+\begin{itemize}
+\item \textbf{Zero-shot.} The unmodified Qwen3-VL-2B-Instruct and Qwen3.5-4B, video only, with the official
+lmms-eval ReVSI prompts (pre-prompt ``These are frames of a video.'', the VSI-Bench multiple-choice post-prompt,
+``Answer the question using a single integer or decimal number.''); greedy decoding, at most 16 new tokens, no
+system prompt, thinking off; the first word of the output is scored. Frames are sampled at 1 fps with at most 64, as
+in our VSI-Bench evaluation (152 of the 380 videos then get fewer than 64 frames), or as all 64 frames that ReVSI
+provides (ReVSI's protocol). The two agree within 1.8 points on every task and within 0.3 on the average.
+\item \textbf{Fine-tuned, video only.} Qwen3.5-4B fine-tuned with LoRA on the 190k mix (\texttt{novggt\_qwen35\_4b},
+step 743), all 64 frames, prompted in its training format (system prompt, ``This is the 3D scene context.'', the
+VSI-Bench post-prompts).
+\item \textbf{Fine-tuned, video + ground-truth scene.} Qwen3.5-4B fine-tuned on Reason-190K with the ground-truth
+scene (\texttt{novggt\_qwen35\_4b\_reason190k\_vs}, step 569), all 64 frames. The scene is built from ReVSI's own
+annotation: the objects visible in the 64 frames, the boxes the question is about (or the objects named in it), each
+as the upright axis-aligned box around ReVSI's oriented box after turning the room so that its walls lie on $x$ and
+$y$. ReVSI ships no camera poses, so the origin is the annotation's and not the first camera (answers do not depend
+on the origin).
+\item \textbf{Exp1, predicted scene.} Our best VSI-Bench model (Exp1, \texttt{novggt\_qwen35\_4b\_reason190k\_mixv2\_1\_objq},
+70.4 on VSI-Bench with the scene at real scale) with the SAM~3 + VGGT-SLAM scene, built as on VSI-Bench (boxes with
+score $\ge 0.7$, question-name prompts and ``room door''). VGGT-SLAM runs on ReVSI's all-frame video; without
+camera poses the scene stays at the scale VGGT-SLAM estimates. Two passes: the mix-v2-1 rule (route planning,
+room size and questions with no named object detected are answered from the video alone: 581 questions) and the
+scene on every question. These rows are prompted by our scene-language evaluation (training format, score-aware
+prompt) and scored by our ReVSI scorer: the last option letter or number of the output, and the question types of
+a task pooled rather than averaged. This shifts tasks with several question types slightly, so the Exp1 rows are
+close to, but not exactly, the lmms-eval protocol of the other rows.
+\end{itemize}
 
 \paragraph{Results.}
-Table~\ref{tab:revsi-qwen} gives the scores. Zero-shot Qwen3.5-4B reaches 45.3 and Qwen3-VL-2B 44.4, far below
-Claude Opus~5.5 given the ground-truth scene as text (93.7, Table~\ref{tab:claude-revsi}). The fine-tuned
-Qwen3.5-4B (Exp1, \texttt{novggt\_qwen35\_4b\_reason190k\_mixv2\_1\_objq}; 70.4 on VSI-Bench with the
-VGGT-SLAM + SAM~3 scene) has not been evaluated on ReVSI yet. ReVSI is a clean test for it: none of the 190k
-training rows comes from a ReVSI scene.
+Table~\ref{tab:revsi-qwen} gives the scores. Zero-shot, Qwen3.5-4B reaches 45.3 and Qwen3-VL-2B 44.4.
+Fine-tuning Qwen3.5-4B on video alone lifts every task and the average by 8.7 points (54.0). Exp1 with the predicted
+scene at estimated scale reaches 57.1 (56.6 under the mix-v2-1 rule), 3.1 points above the video-only fine-tune;
+the gain is in counting (+5.1), relative distance (+7.4), relative direction (+3.5) and absolute distance (+2.5),
+while room size and route planning, which the mix-v2-1 rule answers from the video, move by at most 2.5 points.
+The ground-truth scene shows the ceiling of the scene input: the fine-tuned model reaches 93.8--97.8 on counting,
+absolute distance and object size and 74.9 on average. Room size (50.2), relative direction (53.1) and route
+planning (52.3) stay at or below the video-only model, although the same scene lets Claude Opus~5.5 answer relative
+direction perfectly (100.0) and reach 93.7 overall (Table~\ref{tab:claude-revsi}): the fine-tuned model reads
+sizes, counts and distances off the boxes but does not yet reason over their layout.
 
 \begin{table}[t]
 \centering
-\caption{Zero-shot Qwen on ReVSI (64-frame subset, 6,616 questions), video only. Accuracy (multiple choice) or MRA
-(numeric); ``Avg.'' is the mean over the seven tasks. Frames: 1 fps with at most 64 (our VSI-Bench protocol) or all 64 provided frames (ReVSI protocol). ReVSI has no
-appearance order task (--). The fine-tuned
-Qwen3.5-4B is not yet evaluated.}
+\caption{Qwen on ReVSI (64-frame subset, 6,616 questions). Accuracy (multiple choice) or MRA (numeric); ``Avg.''
+is the mean over the seven tasks. Frames: 1 fps with at most 64 (our VSI-Bench protocol) or all 64 provided frames
+(ReVSI protocol); the Exp1 rows use the 64-frame video. ReVSI has no appearance order task (--). Scene: none (video
+only), predicted (SAM~3 + VGGT-SLAM at estimated scale) or ground truth (ReVSI's boxes, an upper bound). Exp1 rows are
+scored by our ReVSI scorer (see text).}
 \label{tab:revsi-qwen}
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{llrrrrrrrrr}
 \toprule
 Model / evaluation & Frames & Obj.\ Cnt. & Abs.\ Dist. & Obj.\ Size & Room Size & Rel.\ Dist. & Rel.\ Dir. & Route Plan & App.\ Order & Avg. \\
 \midrule
-Qwen3-VL-2B, zero-shot & 1 fps, $\le$ 64 & 37.9 & 44.6 & 64.7 & 41.6 & 41.4 & 33.2 & 45.2 & -- & 44.1 \\
-Qwen3-VL-2B, zero-shot & all 64          & 37.9 & 46.4 & 65.1 & 40.1 & 41.6 & 33.0 & 46.6 & -- & 44.4 \\
-Qwen3.5-4B, zero-shot  & 1 fps, $\le$ 64 & 31.8 & 50.7 & 59.1 & 48.4 & 48.7 & 43.6 & 34.4 & -- & 45.2 \\
-Qwen3.5-4B, zero-shot  & all 64          & 31.9 & 51.4 & 59.6 & 47.5 & 49.4 & 43.5 & 34.1 & -- & \textbf{45.3} \\
+\multicolumn{11}{l}{\emph{Zero-shot, video only}} \\
+Qwen3-VL-2B & 1 fps, $\le$ 64 & 37.9 & 44.6 & 64.7 & 41.6 & 41.4 & 33.2 & 45.2 & -- & 44.1 \\
+Qwen3-VL-2B & all 64          & 37.9 & 46.4 & 65.1 & 40.1 & 41.6 & 33.0 & 46.6 & -- & 44.4 \\
+Qwen3.5-4B  & 1 fps, $\le$ 64 & 31.8 & 50.7 & 59.1 & 48.4 & 48.7 & 43.6 & 34.4 & -- & 45.2 \\
+Qwen3.5-4B  & all 64          & 31.9 & 51.4 & 59.6 & 47.5 & 49.4 & 43.5 & 34.1 & -- & 45.3 \\
 \midrule
-Qwen3.5-4B fine-tuned (Exp1) & & -- & -- & -- & -- & -- & -- & -- & -- & -- \\
+\multicolumn{11}{l}{\emph{Fine-tuned Qwen3.5-4B}} \\
+Video only (190k mix)                              & all 64          & 42.5 & 61.6 & 67.7 & 57.7 & 51.3 & 46.8 & 50.2 & -- & 54.0 \\
+Exp1, predicted scene, mix-v2-1 rule               & 64-frame video  & 47.6 & 64.1 & 68.7 & 56.5 & 58.7 & 50.3 & 50.2 & -- & 56.6 \\
+Exp1, predicted scene on every question            & 64-frame video  & 47.6 & 64.1 & 68.7 & 57.7 & 58.7 & 50.3 & 52.7 & -- & \textbf{57.1} \\
+\midrule
+\multicolumn{11}{l}{\emph{Upper bound: ground-truth scene}} \\
+Video + GT scene (Reason-190K)                     & all 64          & 93.8 & 96.3 & 97.8 & 50.2 & 80.7 & 53.1 & 52.3 & -- & 74.9 \\
 \bottomrule
 \end{tabular}}
 \end{table}
