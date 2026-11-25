@@ -8,6 +8,10 @@
 %  - Exp1 rows: gandalf /scr/xinyu/projects/3d-scene-lang/runs/eval_q35vs_gandalf/revsi_exp1_s3q_rr_{mixv2,full}_rvs_question,
 %    rows data/scenelang_revsi_slam/rows_s3q_roomdoor_{mixv2,full}.jsonl, scored with data/scenelang_revsi_slam/score_revsi_preds.py
 %    (re-run 2026-11-25 at ca81a64: 56.6 and 57.1).
+%  - text-only GT-scene rows: Claude no-code = gandalf vggtdet_es56/runs/claude_nocode_s3/revsi_gt/out (claude_nocode_revsi_gt);
+%    code solver = gandalf /scr/xinyu/projects/3d-scene-lang/runs/code_solver/revsi_gt/out (code_solver_revsi_gt,
+%    data/revsi_gt_scene/code_solver.py @298f096, on the same batches); both scored by scripts/analysis/revsi_score_answers.py
+%    --gt <parquet> (93.8 and 81.6; claude.tex reports 93.7 with the run's own score_revsi.py).
 % Data: ReVSI Hugging Face release, 64_frame/test-00000-of-00001.parquet (jz: $WORK/data/ReVSI; gandalf: /scr/xinyu/data/ReVSI).
 
 \section{Qwen on ReVSI}
@@ -34,6 +38,12 @@ annotation: the objects visible in the 64 frames, the boxes the question is abou
 as the upright axis-aligned box around ReVSI's oriented box after turning the room so that its walls lie on $x$ and
 $y$. ReVSI ships no camera poses, so the origin is the annotation's and not the first camera (answers do not depend
 on the origin).
+\item \textbf{Ground-truth scene as text, no video.} Two references that read the same scene text (every object
+visible in the 64 frames, as centre, size and yaw; Section~\ref{sec:claude-revsi}): Claude Opus~5.5 without code,
+and a code solver, i.e.\ fixed rules written by Claude for VSI-Bench and ported to ReVSI's wording (counts of the
+label, the longest box side, the closest points between boxes, left/right/back from the box centres, the smallest
+rectangle around all boxes for room size). Route planning has no rule and is scored 0. Both are scored by the
+first word of the answer with the question types of a task averaged, as the zero-shot rows.
 \item \textbf{Exp1, predicted scene.} Our best VSI-Bench model (Exp1, \texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b\_\allowbreak reason190k\_\allowbreak mixv2\_\allowbreak 1\_\allowbreak objq},
 70.4 on VSI-Bench with the scene at real scale) with the SAM~3 + VGGT-SLAM scene, built as on VSI-Bench (boxes with
 score $\ge 0.7$, question-name prompts and ``room door''). VGGT-SLAM runs on ReVSI's all-frame video; without
@@ -54,8 +64,12 @@ while room size and route planning, which the mix-v2-1 rule answers from the vid
 The ground-truth scene shows the ceiling of the scene input: the fine-tuned model reaches 93.8--97.8 on counting,
 absolute distance and object size and 74.9 on average. Room size (50.2), relative direction (53.1) and route
 planning (52.3) stay at or below the video-only model, although the same scene lets Claude Opus~5.5 answer relative
-direction perfectly (100.0) and reach 93.7 overall (Table~\ref{tab:claude-revsi}): the fine-tuned model reads
+direction perfectly (100.0) and reach 93.8 overall (93.7 with the run's own scorer, Table~\ref{tab:claude-revsi}): the fine-tuned model reads
 sizes, counts and distances off the boxes but does not yet reason over their layout.
+The code solver confirms that the ground-truth boxes decide the five geometric tasks: its fixed rules score
+99.9--100.0 on all of them. Room size is the hard part even with the boxes (71.6 for the solver, 69.5 for Claude),
+because the visible objects do not span the whole floor. The solver's lower average (81.6) comes only from route
+planning, which it cannot answer; on the other six tasks it averages 95.3, against 94.8 for Claude.
 
 \begin{table}[t]
 \centering
@@ -63,7 +77,8 @@ sizes, counts and distances off the boxes but does not yet reason over their lay
 is the mean over the seven tasks. Frames: 1 fps with at most 64 (our VSI-Bench protocol) or all 64 provided frames
 (ReVSI protocol); the Exp1 rows use the 64-frame video. ReVSI has no appearance order task (--). Scene: none (video
 only), predicted (SAM~3 + VGGT-SLAM at estimated scale) or ground truth (ReVSI's boxes, an upper bound). Exp1 rows are
-scored by our ReVSI scorer (see text).}
+scored by our ReVSI scorer (see text). The text-only references see every visible object; the fine-tuned GT-scene
+row sees the objects of the question. Bold: best overall; underlined: best without the ground-truth scene. $^\dagger$No rule for route planning: scored 0 (95.3 on the other six tasks).}
 \label{tab:revsi-qwen}
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{llrrrrrrrrr}
@@ -79,10 +94,14 @@ Qwen3.5-4B  & all 64          & 31.9 & 51.4 & 59.6 & 47.5 & 49.4 & 43.5 & 34.1 &
 \multicolumn{11}{l}{\emph{Fine-tuned Qwen3.5-4B}} \\
 Video only (190k mix)                              & all 64          & 42.5 & 61.6 & 67.7 & 57.7 & 51.3 & 46.8 & 50.2 & -- & 54.0 \\
 Exp1, predicted scene, mix-v2-1 rule               & 64-frame video  & 47.6 & 64.1 & 68.7 & 56.5 & 58.7 & 50.3 & 50.2 & -- & 56.6 \\
-Exp1, predicted scene on every question            & 64-frame video  & 47.6 & 64.1 & 68.7 & 57.7 & 58.7 & 50.3 & 52.7 & -- & \textbf{57.1} \\
+Exp1, predicted scene on every question            & 64-frame video  & 47.6 & 64.1 & 68.7 & 57.7 & 58.7 & 50.3 & 52.7 & -- & \underline{57.1} \\
 \midrule
 \multicolumn{11}{l}{\emph{Upper bound: ground-truth scene}} \\
 Video + GT scene (Reason-190K)                     & all 64          & 93.8 & 96.3 & 97.8 & 50.2 & 80.7 & 53.1 & 52.3 & -- & 74.9 \\
+\midrule
+\multicolumn{11}{l}{\emph{Reference: ground-truth scene as text, no video}} \\
+Claude Opus~5.5, no code                           & none            & 99.8 & 99.8 & 100.0 & 69.5 & 99.6 & 100.0 & 88.2 & -- & \textbf{93.8} \\
+Code solver (fixed rules, no model)                & none            & 100.0 & 99.9 & 100.0 & 71.6 & 100.0 & 100.0 & 0.0$^\dagger$ & -- & 81.6 \\
 \bottomrule
 \end{tabular}}
 \end{table}
