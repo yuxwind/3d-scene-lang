@@ -1,6 +1,6 @@
 # 3d-scene-lang: runs
 
-Written by `scripts/exp.py launch` / `record` / `runs 3d-scene-lang` from `runs.json` (do not edit by hand; edit descriptions with `exp.py runs --note`).
+Written by `scripts/exp.py launch` / `record` / `runs 3d-scene-lang` from `runs.json`. Rows added by hand (on any clone) are kept at the end of the table; `exp.py record` turns one into a full record. Edit descriptions with `exp.py runs --note`.
 
 Input, Output and Result are paths on the Remote host. Time is when the run started (Mac local time); for runs recorded after they finished (`exp.py record`, marked *recorded*) it is the time of the newest result file.
 
