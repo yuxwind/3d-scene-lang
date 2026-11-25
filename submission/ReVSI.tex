@@ -25,16 +25,16 @@ lmms-eval ReVSI prompts (pre-prompt ``These are frames of a video.'', the VSI-Be
 system prompt, thinking off; the first word of the output is scored. Frames are sampled at 1 fps with at most 64, as
 in our VSI-Bench evaluation (152 of the 380 videos then get fewer than 64 frames), or as all 64 frames that ReVSI
 provides (ReVSI's protocol). The two agree within 1.8 points on every task and within 0.3 on the average.
-\item \textbf{Fine-tuned, video only.} Qwen3.5-4B fine-tuned with LoRA on the 190k mix (\texttt{novggt\_qwen35\_4b},
+\item \textbf{Fine-tuned, video only.} Qwen3.5-4B fine-tuned with LoRA on the 190k mix (\texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b},
 step 743), all 64 frames, prompted in its training format (system prompt, ``This is the 3D scene context.'', the
 VSI-Bench post-prompts).
 \item \textbf{Fine-tuned, video + ground-truth scene.} Qwen3.5-4B fine-tuned on Reason-190K with the ground-truth
-scene (\texttt{novggt\_qwen35\_4b\_reason190k\_vs}, step 569), all 64 frames. The scene is built from ReVSI's own
+scene (\texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b\_\allowbreak reason190k\_\allowbreak vs}, step 569), all 64 frames. The scene is built from ReVSI's own
 annotation: the objects visible in the 64 frames, the boxes the question is about (or the objects named in it), each
 as the upright axis-aligned box around ReVSI's oriented box after turning the room so that its walls lie on $x$ and
 $y$. ReVSI ships no camera poses, so the origin is the annotation's and not the first camera (answers do not depend
 on the origin).
-\item \textbf{Exp1, predicted scene.} Our best VSI-Bench model (Exp1, \texttt{novggt\_qwen35\_4b\_reason190k\_mixv2\_1\_objq},
+\item \textbf{Exp1, predicted scene.} Our best VSI-Bench model (Exp1, \texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b\_\allowbreak reason190k\_\allowbreak mixv2\_\allowbreak 1\_\allowbreak objq},
 70.4 on VSI-Bench with the scene at real scale) with the SAM~3 + VGGT-SLAM scene, built as on VSI-Bench (boxes with
 score $\ge 0.7$, question-name prompts and ``room door''). VGGT-SLAM runs on ReVSI's all-frame video; without
 camera poses the scene stays at the scale VGGT-SLAM estimates. Two passes: the mix-v2-1 rule (route planning,
