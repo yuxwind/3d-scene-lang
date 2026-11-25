@@ -28,6 +28,18 @@ Exp1: follow the prompt of claude (no code) + gt scene, run claude(no code) + vg
 Exp2: evalaute the following exps on ReVSI
  - 3-1 "vggt-slam-sam3, real"
  - 3-2 ""vggt-slam-sam3, estimate"
- - 3-3 claude (no code) + gt scene
- - 3-4 finetuned qwen3.5-4B on video + gt scene
- - 3-5 finetuned qwen3.5-4B on video
+ - 3-3 claude (no code) + gt scene (jz)
+ - 3-4 finetuned qwen3.5-4B on video + gt scene (jz)
+ - 3-5 finetuned qwen3.5-4B on video (jz)
+
+2026.11.24
+Exp1: improve the vsi-bench gt scene, thus claude can do perfectly on it. 
+1. route planing: add more objects in gt scene if possible from the original dataset. 
+Exp2: the plan
+1. counting and obj.size: 
+2. abs/relative distance:
+3. rel. direction:
+4. Appearance, room size, route:  
+Exp3: use vlm to drop the 2D seg for better 3D box as s-agent-2.0
+
+
