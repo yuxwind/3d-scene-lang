@@ -72,5 +72,22 @@
     "result_n": 1,
     "recorded": "2026-11-25 19:10",
     "commit": "2be2d84 + uncommitted eval_revsi.py (--adapter/--mode) and job_ft.slurm"
+  },
+  {
+    "time": "2026-10-20 18:16",
+    "name": "revsi_zs_qwen35_4b",
+    "host": "jz",
+    "description": "Zero-shot Qwen3.5-4B (unmodified) on ReVSI 64-frame (6,616 q), video only, 1 fps (<= 64 frames), lmms-eval prompts and scoring (eval_revsi.py; job.slurm tasks 2-3). Tasks: count 31.8, abs_dist 50.7, obj_size 59.1, room 48.4, rel_dist 48.7, rel_dir 43.6, route 34.4",
+    "inputs": [
+      "/lustre/fsn1/projects/rech/bef/uxt97ti/data/ReVSI",
+      "/lustre/fswork/projects/rech/bef/uxt97ti/hf_cache/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+    ],
+    "output": "/lustre/fswork/projects/rech/bef/uxt97ti/projects/3d-scene-lang/playground/zeroshot_revsi/qwen35_4b",
+    "result": "/lustre/fswork/projects/rech/bef/uxt97ti/projects/3d-scene-lang/playground/zeroshot_revsi/qwen35_4b/results_merged.json",
+    "status": "done",
+    "status_info": "45.2 overall, 6616 q",
+    "result_n": 1,
+    "recorded": "2026-11-25 19:10",
+    "commit": ""
   }
 ]
