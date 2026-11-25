@@ -54,5 +54,23 @@
     "result_n": 1,
     "recorded": "2026-11-25 19:10",
     "commit": "2be2d84 + uncommitted eval_revsi.py (--adapter/--mode) and job_ft.slurm"
+  },
+  {
+    "time": "2026-11-21 16:13",
+    "name": "revsi_ft_q35vs_video_gtscene_569",
+    "host": "jz",
+    "description": "Fine-tuned Qwen3.5-4B, video + GT scene (novggt_qwen35_4b_reason190k_vs checkpoint-569), on ReVSI 64-frame (6,616 q), all 64 frames; scene = ReVSI 3d_annotation boxes (visible in 64 frames, yaw-aligned, axis-aligned upright boxes, question objects) (eval_revsi.py --mode ft_video_scene; job_ft.slurm tasks 2-3, Slurm 546996). Tasks: count 93.8, abs_dist 96.3, obj_size 97.8, room 50.2, rel_dist 80.7, rel_dir 53.1, route 52.3",
+    "inputs": [
+      "/lustre/fswork/projects/rech/bef/uxt97ti/data/ReVSI",
+      "/lustre/fswork/projects/rech/bef/uxt97ti/hf_cache/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+      "/lustre/fsn1/projects/rech/bef/uxt97ti/3d_scene_lang/results/sr_vggt_novggt_qwen35_4b_reason190k_vs/checkpoint-569"
+    ],
+    "output": "/lustre/fswork/projects/rech/bef/uxt97ti/projects/3d-scene-lang/playground/zeroshot_revsi/ft_q35vs_video_gtscene_569",
+    "result": "/lustre/fswork/projects/rech/bef/uxt97ti/projects/3d-scene-lang/playground/zeroshot_revsi/ft_q35vs_video_gtscene_569/results_merged.json",
+    "status": "done",
+    "status_info": "74.9 overall, 6616 q",
+    "result_n": 1,
+    "recorded": "2026-11-25 19:10",
+    "commit": "2be2d84 + uncommitted eval_revsi.py (--adapter/--mode) and job_ft.slurm"
   }
 ]
