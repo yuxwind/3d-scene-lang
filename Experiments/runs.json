@@ -36,5 +36,23 @@
     "result_n": 24,
     "recorded": "2026-11-25 18:12",
     "commit": "old tree 605eccd + uncommitted edits (score script committed later in 5b07de7)"
+  },
+  {
+    "time": "2026-11-21 16:13",
+    "name": "revsi_ft_q35_video_743",
+    "host": "jz",
+    "description": "Fine-tuned Qwen3.5-4B, video only (novggt_qwen35_4b checkpoint-743, 190k mix), on ReVSI 64-frame (6,616 q), all 64 frames, training prompt format (eval_revsi.py --mode ft_video; job_ft.slurm tasks 0-1, Slurm 546996). Tasks: count 42.5, abs_dist 61.6, obj_size 67.7, room 57.7, rel_dist 51.3, rel_dir 46.8, route 50.2",
+    "inputs": [
+      "/lustre/fswork/projects/rech/bef/uxt97ti/data/ReVSI",
+      "/lustre/fswork/projects/rech/bef/uxt97ti/hf_cache/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+      "/lustre/fsn1/projects/rech/bef/uxt97ti/3d_scene_lang/results/sr_vggt_novggt_qwen35_4b/checkpoint-743"
+    ],
+    "output": "/lustre/fswork/projects/rech/bef/uxt97ti/projects/3d-scene-lang/playground/zeroshot_revsi/ft_q35_video_743",
+    "result": "/lustre/fswork/projects/rech/bef/uxt97ti/projects/3d-scene-lang/playground/zeroshot_revsi/ft_q35_video_743/results_merged.json",
+    "status": "done",
+    "status_info": "54.0 overall, 6616 q",
+    "result_n": 1,
+    "recorded": "2026-11-25 19:10",
+    "commit": "2be2d84 + uncommitted eval_revsi.py (--adapter/--mode) and job_ft.slurm"
   }
 ]
