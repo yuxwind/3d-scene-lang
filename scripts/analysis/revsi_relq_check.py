@@ -9,6 +9,7 @@ usage: revsi_relq_check.py --batches DIR --rows ROWS.jsonl [--preds NAME=RUN_DIR
   --rows     ReVSI rows with id, revsi_type (or question_type), options, ground_truth (e.g. rows_s3q_roomdoor_full.jsonl)
   --preds    eval_scenelang runs (predictions_shard*.jsonl; answer = last option letter, as score_revsi_preds.py)
   --answers  Claude / code-solver runs (out/*.json; answer = first word, as revsi_score_answers.py)
+  --subset NAME  score every run only on the questions run NAME answered (its answer is not "none"), e.g. a code-solver list
 prints per type: n, options, chance, GT answer spread, then per run: accuracy, % flipped answer. numpy only.
 """
 import argparse, collections, glob, importlib.util, json, os, re
@@ -32,7 +33,7 @@ def flip(q):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--batches", required=True); ap.add_argument("--rows", required=True)
     ap.add_argument("--preds", action="append", default=[]); ap.add_argument("--answers", action="append", default=[])
-    a = ap.parse_args()
+    ap.add_argument("--subset"); a = ap.parse_args()
     scene = {}
     for f in glob.glob(os.path.join(a.batches, "*.json")):
         for it in json.load(open(f))["questions"]:
@@ -55,6 +56,10 @@ def main():
             for k, v in json.load(open(f))["answers"].items():
                 P[int(k)] = str(v).strip().split(" ")[0].rstrip(".").strip().upper()[:1]
         runs[n] = P
+    if a.subset:
+        keep = {i for i, v in runs[a.subset].items() if v != "N"}
+        rows = {i: r for i, r in rows.items() if i in keep}
+        print(f"subset: the {len(rows)} questions answered by {a.subset}")
     # flipped (and true) answers from the GT scene
     flipped, check = {}, collections.Counter()
     for i, r in rows.items():
