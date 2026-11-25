@@ -1,8 +1,9 @@
 """Score eval_scenelang.py predictions on ReVSI rows (revsi_rows.py) the ReVSI way: answer extraction as eval_scenelang.py
 (last option letter for multiple choice, last number otherwise), accuracy / MRA (.50-.95), the 13 question types pooled into
 7 tasks, overall = mean of the 7 tasks; also the mean over the 13 types, per source dataset, and video-only vs list rows.
-    python3 score_revsi_preds.py <rows.jsonl> <run dir with predictions_shard*.jsonl> [...more run dirs]"""
-import json, glob, re, sys, collections
+    python3 score_revsi_preds.py <rows.jsonl> <run dir with predictions_shard*.jsonl> [...more run dirs]
+    env IDS=<file of question ids, one per line>: score only those questions (e.g. revsi_score_answers.py --write-ids)"""
+import json, glob, os, re, sys, collections
 import numpy as np
 LETTER = re.compile(r"\b([A-D])\b(?![a-z'])"); NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
 T = ['object_abs_distance', 'object_counting', 'object_rel_direction', 'object_rel_distance', 'object_size_estimation', 'room_size_estimation', 'route_planning']
@@ -20,6 +21,7 @@ for d in sys.argv[2:]:
     P = {}
     for f in glob.glob(f'{d}/predictions_shard*.jsonl'):
         for l in open(f): x = json.loads(l); P[int(x['index'])] = x['prediction']
+    if os.environ.get('IDS'): keep = {int(l) for l in open(os.environ['IDS']) if l.strip()}; P = {i: p for i, p in P.items() if i in keep}
     s, sq, sd, su = (collections.defaultdict(list) for _ in range(4)); sdd = collections.defaultdict(lambda: collections.defaultdict(list))
     for i, p in P.items():
         r = rows[i]; x = sc(r, str(p)); s[task(r['revsi_type'])].append(x); sq[r['revsi_type']].append(x); sdd[r['dataset']][task(r['revsi_type'])].append(x)

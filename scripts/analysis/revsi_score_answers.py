@@ -4,9 +4,11 @@
 Same metric as playground/zeroshot_revsi/eval_revsi.py (lmms-eval revsi): first word of the answer; multiple choice
 exact match on the letter; numbers MRA over thresholds .50-.95 (rel. error <= 1 - thr); 13 subtypes averaged into
 7 tasks (rel. direction 4, rel. distance 2, counting 2, room size 2); overall = mean of the 7.
-usage: revsi_score_answers.py RUN_DIR [--gt ROWS] [--by-dataset] [--json OUT]
+usage: revsi_score_answers.py RUN_DIR [--gt ROWS] [--by-dataset] [--json OUT] [--answered] [--write-ids FILE] [--ids FILE]
   --gt: GT rows, default RUN_DIR/rows.jsonl (jz runs). A .parquet (e.g. /scr/xinyu/data/ReVSI/64_frame/
         test-00000-of-00001.parquet, for gandalf claude_nocode_s3/revsi_gt) is read with pandas (training env).
+  --answered: score only questions whose answer is not "none" (the code solver's no-answer); --write-ids FILE: write
+        the scored question ids (one per line), e.g. to score another run on the same questions with --ids FILE.
 prints: answered/total, overall, the 7 tasks (n). stdlib only, except --gt *.parquet.
 """
 import argparse, collections, glob, json, os
@@ -44,7 +46,8 @@ def score(rows):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("run_dir"); ap.add_argument("--by-dataset", action="store_true")
-    ap.add_argument("--json"); ap.add_argument("--gt"); a = ap.parse_args()
+    ap.add_argument("--json"); ap.add_argument("--gt"); ap.add_argument("--answered", action="store_true")
+    ap.add_argument("--write-ids"); ap.add_argument("--ids"); a = ap.parse_args()
     A = {}
     for f in glob.glob(os.path.join(a.run_dir, "out", "*.json")):
         if f.endswith(".meta.json"):
@@ -59,7 +62,13 @@ def main():
         rows = [{k: r[k] for k in ("id", "question_type", "ground_truth", "dataset")} for r in pd.read_parquet(gt).to_dict("records")]
     else:
         rows = [json.loads(l) for l in open(gt)]
+    if a.answered:
+        A = {k: v for k, v in A.items() if str(v).strip().lower() != "none"}
+    if a.ids:
+        keep = {l.strip() for l in open(a.ids) if l.strip()}; A = {k: v for k, v in A.items() if k in keep}
     got = [dict(r, acc=acc(r["question_type"], A[str(r["id"])], r["ground_truth"])) for r in rows if str(r["id"]) in A]
+    if a.write_ids:
+        open(a.write_ids, "w").write("\n".join(str(r["id"]) for r in got) + "\n")
     cost = sum(json.load(open(m)).get("total_cost_usd", 0) or 0 for m in glob.glob(os.path.join(a.run_dir, "out", "*.meta.json")))
     ov, o = score(got)
     print(f"answered {len(got)}/{len(rows)}  overall {ov:.1f}  (cost so far ${cost:.2f})")
