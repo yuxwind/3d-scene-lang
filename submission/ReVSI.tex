@@ -12,6 +12,11 @@
 %    code solver = gandalf /scr/xinyu/projects/3d-scene-lang/runs/code_solver/revsi_gt/out (code_solver_revsi_gt,
 %    data/revsi_gt_scene/code_solver.py @298f096, on the same batches); both scored by scripts/analysis/revsi_score_answers.py
 %    --gt <parquet> (93.8 and 81.6; claude.tex reports 93.7 with the run's own score_revsi.py).
+%  - code solver on the SAM 3 + VGGT-SLAM lists (sec:revsi-code): gandalf /scr/xinyu/projects/3d-scene-lang/runs/code_solver/
+%    revsi_s3est_{threshold,oracle,oraclecnt}/out (code_solver_revsi_s3est_*), code_solver.py --rows on
+%    data/scenelang_revsi_slam/rows_s3q_roomdoor_full.jsonl (threshold) and rows_s3q_rr_{oracle,oraclecnt}_full.jsonl, built by
+%    data/scenelang_revsi_slam/oracle_lists.py @9b42b2a from VGGT-SLAM/exps/vsibench_objects/revsi/s3qbox_alt-door_*.json
+%    (registration stats: oracle_lists_stats.json); scored by revsi_score_answers.py --gt <parquet>.
 % Data: ReVSI Hugging Face release, 64_frame/test-00000-of-00001.parquet (jz: $WORK/data/ReVSI; gandalf: /scr/xinyu/data/ReVSI).
 
 \section{Qwen on ReVSI}
@@ -105,3 +110,55 @@ Code solver (fixed rules, no model)                & none            & 100.0 & 9
 \bottomrule
 \end{tabular}}
 \end{table}
+
+\subsection{Code solver on the predicted scene}
+\label{sec:revsi-code}
+
+\paragraph{Setup.}
+As on VSI-Bench (Section~\ref{sec:agent-code}), we run the code solver on the SAM~3 + VGGT-SLAM boxes of ReVSI at
+estimated scale, with the list on every question, and with three ways of choosing the boxes:
+\begin{itemize}
+\item \emph{threshold}: the boxes with score $\geq 0.7$ (the list of the Exp1 rows in Table~\ref{tab:revsi-qwen});
+\item \emph{oracle}: all candidates at any score, matched one-to-one to the ground-truth boxes of their label (Hungarian on
+  centre distance); a pair is kept if the 3D IoU is $\geq 0.1$ or the centres are within $\max(0.5\,\mathrm{m},\ 0.5\times$
+  the GT box's longest side);
+\item \emph{oraclecnt}: as oracle without the position check, so each GT object keeps the candidate it is assigned.
+\end{itemize}
+The kept boxes are written unchanged, at estimated scale. ReVSI has no camera poses, so unlike VSI-Bench the SLAM frame cannot
+be fitted to ground-truth cameras before matching. Instead each scene's candidates are registered to its ground-truth boxes
+directly: a similarity (scale, yaw, shift; $z$ up in both) found by RANSAC over same-label pairs of box centres and refined by
+least squares. 327 of the 380 scenes register; their median scale is 1.00 (10th--90th percentile 0.78--1.23), so VGGT-SLAM's
+estimated scale is close to the true one. In the 53 other scenes oracle keeps nothing and oraclecnt keeps, per ground-truth
+label, its highest-scoring candidates. Oracle keeps 72.1\% of the ground-truth objects and oraclecnt 85.4\% (82.3\% and
+94.9\% on VSI-Bench). A question whose named object has no box gets no answer and scores 0; route planning has no rule.
+
+\begin{table}[t]
+\centering
+\caption{Code solver on ReVSI (64-frame subset, 6,616 questions), no model, no video. Accuracy (multiple choice) or MRA
+(numeric). ``Avg.'' is the mean over the seven tasks with route planning at 0; ``6 tasks'' leaves route planning out.
+``No answer'': questions with a named object that has no box. VSI-Bench, 6 tasks: the same lists on VSI-Bench
+(Table~\ref{tab:agent-code}).}
+\label{tab:revsi-code}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrrrrrrrrrrrr}
+\toprule
+List & Obj.\ Cnt. & Abs.\ Dist. & Obj.\ Size & Room Size & Rel.\ Dist. & Rel.\ Dir. & Route Plan & App.\ Order & Avg. & 6 tasks & No answer & VSI-Bench, 6 tasks \\
+\midrule
+GT scene (ref.)            & 100.0 & 99.9 & 100.0 & 71.6 & 100.0 & 100.0 & 0.0 & -- & 81.6 & 95.3 & 0     & 90.4 \\
+S3 estimated, threshold    & 57.6  & 35.5 & 43.0  & 44.9 & 44.5  & 31.3  & 0.0 & -- & 36.7 & 42.8 & 2,252 & 47.5 \\
+S3 estimated, oracle       & 70.8  & 51.1 & 46.2  & 43.7 & 69.4  & 57.8  & 0.0 & -- & 48.4 & 56.5 & 1,481 & 58.3 \\
+S3 estimated, oraclecnt    & 88.1  & 59.5 & 51.2  & 47.0 & 75.7  & 68.8  & 0.0 & -- & 55.8 & 65.1 & 879   & 66.8 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\paragraph{Results.}
+Table~\ref{tab:revsi-code}. The pattern follows VSI-Bench, a few points lower on every list. With the threshold list a third
+of the questions (2,252) get no answer because a named object has no box, and the code reaches 42.8 on the six computable
+tasks. Choosing the boxes that match ground-truth objects raises it to 56.5 (oracle) and 65.1 (oraclecnt): counting
+(88.1), relative distance (75.7) and relative direction (68.8) gain most. The remaining gap to the ground-truth scene (95.3)
+lies in the boxes themselves: object size stays at 51.2 and absolute distance at 59.5 even with oraclecnt, since sizes and
+positions come from an estimated-scale reconstruction, and 879 questions still name an object that was never detected.
+On the threshold list the code (36.7 overall) is far below the Exp1 model on the same list with the video (57.1,
+Table~\ref{tab:revsi-qwen}), which answers from the video when boxes are missing or wrong.
+
