@@ -123,5 +123,22 @@
     "result_n": 1,
     "recorded": "2026-11-25 19:10",
     "commit": ""
+  },
+  {
+    "time": "2026-10-20 18:50",
+    "name": "revsi_zs_qwen3vl_2b_allframes",
+    "host": "jz",
+    "description": "Zero-shot Qwen3-VL-2B-Instruct (unmodified) on ReVSI 64-frame (6,616 q), video only, all 64 frames (ReVSI protocol), lmms-eval prompts and scoring (eval_revsi.py; job_allframes.slurm tasks 0-1). Tasks: count 37.9, abs_dist 46.4, obj_size 65.1, room 40.1, rel_dist 41.6, rel_dir 33.0, route 46.6",
+    "inputs": [
+      "/lustre/fsn1/projects/rech/bef/uxt97ti/data/ReVSI",
+      "/lustre/fswork/projects/rech/bef/uxt97ti/hf_cache/hub/models--Qwen--Qwen3-VL-2B-Instruct/snapshots/89644892e4d85e24eaac8bacfd4f463576704203"
+    ],
+    "output": "/lustre/fswork/projects/rech/bef/uxt97ti/projects/3d-scene-lang/playground/zeroshot_revsi/qwen3vl_2b_allframes",
+    "result": "/lustre/fswork/projects/rech/bef/uxt97ti/projects/3d-scene-lang/playground/zeroshot_revsi/qwen3vl_2b_allframes/results_merged.json",
+    "status": "done",
+    "status_info": "44.4 overall, 6616 q",
+    "result_n": 1,
+    "recorded": "2026-11-25 19:10",
+    "commit": ""
   }
 ]
