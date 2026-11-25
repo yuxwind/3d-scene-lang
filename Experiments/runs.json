@@ -89,5 +89,22 @@
     "result_n": 1,
     "recorded": "2026-11-25 19:10",
     "commit": ""
+  },
+  {
+    "time": "2026-10-20 18:50",
+    "name": "revsi_zs_qwen35_4b_allframes",
+    "host": "jz",
+    "description": "Zero-shot Qwen3.5-4B (unmodified) on ReVSI 64-frame (6,616 q), video only, all 64 frames (ReVSI protocol), lmms-eval prompts and scoring (eval_revsi.py; job_allframes.slurm tasks 2-3). Tasks: count 31.9, abs_dist 51.4, obj_size 59.6, room 47.5, rel_dist 49.4, rel_dir 43.5, route 34.1",
+    "inputs": [
+      "/lustre/fsn1/projects/rech/bef/uxt97ti/data/ReVSI",
+      "/lustre/fswork/projects/rech/bef/uxt97ti/hf_cache/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+    ],
+    "output": "/lustre/fswork/projects/rech/bef/uxt97ti/projects/3d-scene-lang/playground/zeroshot_revsi/qwen35_4b_allframes",
+    "result": "/lustre/fswork/projects/rech/bef/uxt97ti/projects/3d-scene-lang/playground/zeroshot_revsi/qwen35_4b_allframes/results_merged.json",
+    "status": "done",
+    "status_info": "45.3 overall, 6616 q",
+    "result_n": 1,
+    "recorded": "2026-11-25 19:10",
+    "commit": ""
   }
 ]
