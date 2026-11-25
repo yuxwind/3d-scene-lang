@@ -17,6 +17,8 @@ A named object with no box, or a question the rules do not parse -> no answer (s
 Boxes: [x, y, z, dx, dy, dz, yaw, roll, pitch] (rotation Rz(yaw) Rx(roll) Ry(pitch), as oracle_code_lists.py) or 6 values.
 numpy only.
     python3 code_solver.py BATCH_DIR RUN_DIR        prints answered / no answer per question kind
+    python3 code_solver.py --rows ROWS.jsonl RUN_DIR  any ReVSI box list as eval rows (scene_language, question, options; e.g.
+                                                     data/scenelang_revsi_slam/rows_s3q_rr_{oracle,oraclecnt}_full.jsonl)
 """
 import glob, json, math, os, re, sys
 from collections import Counter, defaultdict
@@ -124,22 +126,37 @@ def answer(bx, q, opts):
     raise ValueError("unparsed")
 
 
+def items():
+    """-> [(out name, [(id, boxes, question, options)])] from Claude batches or from rows."""
+    if sys.argv[1] == "--rows":
+        qs = []
+        for l in open(sys.argv[2]):
+            r = json.loads(l)
+            opts = {o.split(". ", 1)[1].strip().lower(): o[0] for o in (r.get("options") or [])}
+            qs.append((r["id"], boxes(r["scene_language"]), r["question"], opts))
+        return [("answers.json", qs)]
+    out = []
+    for f in sorted(glob.glob(os.path.join(sys.argv[1], "*.json"))):
+        out.append((os.path.basename(f), [(it["id"], *parse(it["text"])) for it in json.load(open(f))["questions"]]))
+    return out
+
+
 def main():
-    bdir, run = sys.argv[1], sys.argv[2]
+    run = sys.argv[-1]
     os.makedirs(os.path.join(run, "out"), exist_ok=True)
     stat = Counter()
-    for f in sorted(glob.glob(os.path.join(bdir, "*.json"))):
-        b = json.load(open(f)); ans = {}
-        for item in b["questions"]:
-            bx, q, opts = parse(item["text"])
+    for fname, qs in items():
+        ans = {}
+        for qid, bx, q, opts in qs:
+            item = {"id": qid}
             try:
                 kind, a = answer(bx, q, opts); ans[str(item["id"])] = a; stat[kind, "answered"] += 1
             except ValueError as e:
                 ans[str(item["id"])] = "none"; stat[str(e), "no answer"] += 1
             except (KeyError, AttributeError, IndexError):
                 ans[str(item["id"])] = "none"; stat["object not in scene / option", "no answer"] += 1
-        json.dump({"batch": b["batch"], "answers": ans, "solver": "data/revsi_gt_scene/code_solver.py"},
-                  open(os.path.join(run, "out", os.path.basename(f)), "w"))
+        json.dump({"batch": fname[:-5], "answers": ans, "solver": "data/revsi_gt_scene/code_solver.py", "input": sys.argv[1:-1]},
+                  open(os.path.join(run, "out", fname), "w"))
     for (k, s), n in sorted(stat.items()):
         print(f"  {k:32} {s:10} {n}")
     print(f"wrote {run}/out ({sum(stat.values())} questions)")
