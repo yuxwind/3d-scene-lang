@@ -1,0 +1,99 @@
+% VGG-T-Det vs SAM 3 + VGGT-SLAM on VSI-Bench, and why VGG-T-Det is dropped (2026-11-26).
+% Fragment for \input{vggt-det-results}; needs \usepackage{booktabs}. Refers to sam3.tex, vggt-det-arch.tex, agent.tex.
+% Scores: gandalf /scr/xinyu/projects/3d-scene-lang/runs/eval_q35vs_gandalf/<run>_rvs_question, scored 2026-11-26 with
+%   scripts/analysis/qwen_eval_scores.py @8507278, --rows data/scenelang_vsibench_slam/rows_s3q_roomdoor_radiator_all5130_full.jsonl.
+%   Runs: exp1_c2_refine_full, exp1_s3q_rr_gt_mixv2, exp1_s3q_rr_full; mixv2_1_det_full, mixv2_1_det, mixv2_1_c2_refine,
+%   mixv2_1_objq_snpp_refine, mixv2_1_cls65_thr0.5, mixv2_1_c2_thr0.5, mixv2_1_s3q_roomdoor_radiator(_gtscale).
+% Box quality, VSI63 fine-tune and coverage numbers: docs/todo_claude.txt (D1, F4, F6, cls-31 coverage); vggt-det-arch.tex.
+
+\section{VGG-T-Det against SAM~3 + VGGT-SLAM, and why VGG-T-Det is dropped}
+\label{sec:vggtdet-results}
+
+\paragraph{Setup.}
+Both pipelines give the language model a list of \{label, box, score\}. VGG-T-Det is the trained 3D detector
+(the released 18-class model fine-tuned to 31 and 65 classes, and test2-hybrid, trained on IndoorDet-65-31k, which
+refines and filters SAM~3 + VGGT-SLAM proposals and adds its own boxes for objects without a proposal). Every VGG-T-Det variant uses the ground-truth metric scale and the ground-truth pose of the first camera,
+in training and at test time. SAM~3 + VGGT-SLAM (Section~\ref{sec:sam3}) is zero-shot: no 3D training, no ground truth,
+scale estimated from object size priors. Table~\ref{tab:vggtdet-vs-s3} scores both with the same fine-tuned
+Qwen3.5-4B models on all 5,130 VSI-Bench questions.
+
+\begin{table}[h]
+\centering
+\caption{VSI-Bench (MRA or accuracy, \%) with detector lists and SAM~3 + VGGT-SLAM lists. ``GT used'': what ground
+truth the list needs at test time. Exp1 = \texttt{novggt\_qwen35\_4b\_reason190k\_mixv2\_1\_objq}; mix-v2-1 =
+\texttt{novggt\_qwen35\_4b\_reason190k\_mixv2\_1}. $^\ast$mix-v2-1 rule: appearance order, room size and route planning
+are answered from the video alone; the other rows give the list on every question.}
+\label{tab:vggtdet-vs-s3}
+\small
+\setlength{\tabcolsep}{3.5pt}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lllrrrrrrrrrr}
+\toprule
+Model & List & GT used & Full & Deb. & App. & Abs. & Count & Rel.\ dist. & Size & Room & Route & Rel.\ dir. \\
+\midrule
+\multicolumn{13}{l}{\emph{Exp1 model}} \\
+Exp1 & test2-hybrid refining SAM~3 proposals (\texttt{c2\_refine}) & scale + pose & \textbf{70.6} & 63.5 & 80.6 & \textbf{60.9} & 76.6 & \textbf{69.9} & 75.8 & \textbf{73.4} & 51.0 & 76.9 \\
+Exp1 & SAM~3 + VGGT-SLAM, true scale$^\ast$             & camera fit   & 70.4 & \textbf{63.7} & 80.4 & 60.8 & 76.6 & 69.2 & \textbf{76.6} & 72.8 & 49.5 & \textbf{77.2} \\
+Exp1 & SAM~3 + VGGT-SLAM, estimated scale (zero-shot)  & none         & 70.0 & 63.3 & 80.7 & 58.5 & \textbf{77.1} & 68.7 & 75.7 & 73.1 & 49.5 & 77.0 \\
+\midrule
+\multicolumn{13}{l}{\emph{mix-v2-1 model}} \\
+mix-v2-1 & cls-31 (\texttt{det\_full}) & scale + pose & 69.9 & 62.7 & 79.8 & 56.3 & 74.1 & 69.7 & 76.9 & 72.6 & 52.6 & 77.4 \\
+mix-v2-1 & test2-hybrid refining SAM~3 (\texttt{c2\_refine}) & scale + pose & 69.8 & 63.2 & 79.0 & 59.5 & 72.8 & 68.5 & 73.2 & 72.7 & 55.2 & 77.2 \\
+mix-v2-1 & test2-hybrid refine (\texttt{objq\_snpp\_refine}) & scale + pose & 69.6 & 63.1 & 79.0 & 59.0 & 73.6 & 67.9 & 73.4 & 73.0 & 54.1 & 77.0 \\
+mix-v2-1 & cls-65, score $\geq 0.5$ & scale + pose & 69.4 & 62.0 & 79.1 & 55.9 & 72.8 & 68.9 & 76.6 & 73.1 & 53.1 & 76.0 \\
+mix-v2-1 & test2-hybrid, score $\geq 0.5$ (\texttt{c2\_thr0.5}) & scale + pose & 68.6 & 61.9 & 78.5 & 57.6 & 67.3 & 67.2 & 75.8 & 73.6 & 53.1 & 76.1 \\
+mix-v2-1 & SAM~3 + VGGT-SLAM, estimated scale (zero-shot) & none      & 69.0 & 62.9 & 78.5 & 57.5 & 73.5 & 67.0 & 73.4 & 72.6 & 52.1 & 77.5 \\
+\midrule
+Video only & none                                      & --           & 69.4 & 63.7 & & & & & & & & \\
+mix-v2-1 & ground-truth list                           & all          & 77.3 & 73.9 & & & & & & & & \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\paragraph{The best detector list is no better than zero-shot SAM~3.}
+The best VGG-T-Det result is 70.6 / 63.5 (full / debiased), from test2-hybrid refining the SAM~3 proposals, with the
+Exp1 model. The zero-shot SAM~3 + VGGT-SLAM list reaches 70.0 / 63.3 with the same model and no ground truth, and
+70.4 / 63.7 at the true scale, which is the setting the detector uses. Against that row the detector is $+0.2$ full
+and $-0.2$ debiased. Per task the two are nearly identical: counting 76.6 in both, absolute distance 60.9 against 60.8;
+SAM~3 is ahead on object size (76.6 against 75.8). The full-score gap comes from route planning ($+1.5$) and room
+size ($+0.6$), which the true-scale SAM~3 row answers from the video alone. With the mix-v2-1 model the detector lists
+reach 68.6--69.9, against 69.0 for SAM~3 and 69.4 for the video alone. The best detector run is itself a refiner of
+SAM~3 proposals rather than a detector on its own.
+
+\paragraph{The detector's boxes are not better either.}
+On the same scenes and with the same matching, the cls-31 detector recalls 28.8\% of the ground-truth objects at
+IoU $\geq 0.25$ (ScanNet 44.6\%, ARKitScenes 17.2\%, ScanNet++ 16.2\%) and gets the count per label exactly right in 33\%
+(too few in 46\%). SAM~3 + VGGT-SLAM, on the same 31 classes, recalls 34.1\% at estimated scale and 43.9\% at true scale,
+and gets the count exactly right in 47\% (within one in 82\%).
+
+\paragraph{Why VGG-T-Det is dropped.}
+\begin{enumerate}
+\item \emph{Fine-tuning did not pay off.} The 63-class detector (20 more epochs from cls-31) was worse than cls-31:
+  ScanNet mAP@0.25 on the 31 old classes fell from about 0.53 to 0.467, and it found fewer ground-truth boxes within
+  0.5\,m on the 88 VSI-Bench ScanNet scenes (63\% against 73\%). Its 32 new classes reached 0.121 (ScanNet) and 0.082
+  (ARKitScenes) mAP@0.25, and every small object stayed at 0.
+\item \emph{The architecture misses small objects.} Its queries are farthest-point samples of VGGT's point cloud. In an
+  eight-scene memorisation test only 27\% of the ground-truth boxes had a query inside, and VGGT's cloud had no point
+  inside 32\% of them (Section~\ref{sec:vggtdet-arch}). More training does not fix this.
+\item \emph{The training data needed repeated repair.} ARKitScenes had a wrong origin and a focal length 0.75 times too
+  small for portrait videos (1,031 of 2,267 training scenes; Section~\ref{sec:vggtdet-data}), and a uniform box frame for
+  ScanNet++ was still open.
+\item \emph{It is not video-only.} Every variant needs the ground-truth scale and first-camera pose. SAM~3 + VGGT-SLAM
+  reaches the same score from the video alone; the estimated scale costs 0.1--0.4 points
+  (Sections~\ref{sec:sam3-scale} and~\ref{sec:scale}).
+\item \emph{Closed vocabulary.} The cls-31 classes fully cover the objects of only 52.1\% of the VSI-Bench questions.
+  SAM~3 is prompted with the names the questions use, including ``room door'' and ``radiator''.
+\item \emph{Box geometry is not the bottleneck.} Replacing the SAM~3 centres and sizes by ground truth raises VSI-Bench
+  only from 68.6 to 69.9, against 77.3 for the ground-truth list (Section~\ref{sec:sam3}): the errors that matter are
+  missing and extra objects. Box regression, the detector's strength, addresses the smaller error.
+\item \emph{Refining SAM~3 has a low ceiling.} A detector that only refines and filters SAM~3 proposals can recover at
+  most 62--68\% of the ground-truth objects, since it cannot add what SAM~3 missed (Table~\ref{tab:arch-keep}).
+\item \emph{Choosing boxes helps more.} With the oraclecnt choice of SAM~3 candidates, letting the code solver answer the
+  four geometric tasks raises VSI-Bench from 71.8 to 75.8 (Table~\ref{tab:agent-code-mix}). The open problem is which
+  candidates to keep, not how to regress boxes.
+\end{enumerate}
+
+\paragraph{Decision.}
+After weeks of training, the best VGG-T-Det list reaches 70.6 / 63.5, needs ground-truth scale and pose, and still
+depends on SAM~3 for its proposals. Zero-shot SAM~3 + VGGT-SLAM reaches 70.0 / 63.3 from the video alone. We drop
+VGG-T-Det and work on choosing and merging the SAM~3 + VGGT-SLAM candidates.
