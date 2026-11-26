@@ -161,3 +161,91 @@ $\Delta$                & $+4.0$ & $+6.7$ & $0.0$ & $-0.5$ & $+8.2$ & $+12.0$ & 
 Table~\ref{tab:agent-code-mix}: with the oraclecnt list, letting the code answer the four tasks it computes well raises
 VSI-Bench from 71.8 to 75.8 (full) and from 65.5 to 72.2 (debiased). Absolute distance is the one code task that is
 slightly worse than the model ($-0.5$); answering it with the model too would give about 75.9.
+
+% Code vs model on the code's answered questions, and the 3-task mix on every list (2026-11-26). Sources (gandalf):
+% scripts/analysis/vsibench_code_answered.py @3308ea2 (answered only) and --mix object_counting,object_rel_distance,
+% object_rel_direction @f3d825e, on data/scenelang_vsibench_slam/oracle_code_{est_thr,oracle,oraclecnt}.json,
+% data/scenelang_vsibench_gt_firstcam/oracle_code_gt.json and runs/eval_q35vs_gandalf/exp1_s3q_rr_{full,oracle_full,
+% oraclecnt_full,gt_full}_rvs_question; scored with sr_vggt.eval.score.
+\paragraph{On the questions the code answers.}
+Table~\ref{tab:agent-code-answered} scores the code and the Exp1 model only on the questions the code answers (every
+named object has a box), on the same list. Exp1 was fine-tuned on video with ground-truth and detector lists at true
+scale, never on SAM~3 + VGGT-SLAM lists or estimated scale. Even there the model is ahead on average (74.4 against
+63.8--70.9 with predicted lists): it is better on object size ($+14$ to $+17$) and room size ($+34$ to $+40$), and on
+counting unless the list is oraclecnt. The code is better on relative direction (91.8--96.8 against 78.0--82.9, on every
+subtype) and relative distance (72.9--87.7 against 71.4--72.1). With the ground-truth list the code reaches 90.4 while
+the model stays at 72.2, about where it is with predicted lists: the model does not read the geometry off the boxes,
+even when the boxes are right.
+
+\begin{table}[h]
+\centering
+\caption{Code solver vs.\ the Exp1 model on the questions the code answers, same list (MRA or accuracy, \%). Each cell:
+code / model. Appearance order and route planning are never answered; ``Mean'': mean of the six tasks.}
+\label{tab:agent-code-answered}
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lcccc}
+\toprule
+ & threshold & oracle & oraclecnt & GT scene (ref.) \\
+\midrule
+Questions        & 3,181 & 3,578 & 4,049 & 4,318 \\
+Count            & 53.8 / \textbf{77.1} & 72.6 / \textbf{79.9} & \textbf{90.5} / 82.3 & \textbf{99.0} / 76.6 \\
+Abs.\ dist.      & 59.4 / \textbf{62.7} & \textbf{66.6} / 65.8 & 62.9 / \textbf{63.5} & \textbf{97.4} / 60.8 \\
+Obj.\ size       & 65.2 / \textbf{79.5} & 63.2 / \textbf{78.1} & 60.7 / \textbf{77.0} & \textbf{100.0} / 76.6 \\
+Room size        & 39.4 / \textbf{73.1} & 32.7 / \textbf{72.4} & 33.6 / \textbf{73.2} & 45.8 / \textbf{73.1} \\
+Rel.\ dist.      & \textbf{72.9} / 71.4 & \textbf{87.7} / 72.1 & \textbf{85.5} / 72.0 & \textbf{100.0} / 69.2 \\
+Rel.\ dir.       & \textbf{91.8} / 82.9 & \textbf{96.8} / 78.0 & \textbf{92.0} / 78.5 & \textbf{100.0} / 77.2 \\
+\quad easy       & \textbf{93.0} / 81.6 & \textbf{98.5} / 77.9 & \textbf{93.6} / 79.7 & \textbf{100.0} / 78.8 \\
+\quad medium     & \textbf{91.5} / 87.5 & \textbf{96.3} / 82.8 & \textbf{91.8} / 80.9 & \textbf{100.0} / 79.9 \\
+\quad hard       & \textbf{91.0} / 79.5 & \textbf{95.6} / 73.3 & \textbf{90.5} / 74.8 & \textbf{100.0} / 72.9 \\
+\midrule
+Mean             & 63.8 / \textbf{74.4} & 69.9 / \textbf{74.4} & 70.9 / \textbf{74.4} & \textbf{90.4} / 72.2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Mixing by task, every list.}
+Table~\ref{tab:agent-code-mix3} gives the code only the three relation tasks (counting, relative distance, relative
+direction) where it has an answer, and leaves everything else to the model, on all 5,130 questions. Relative direction
+and distance gain with every list ($+1.2$ to $+12.9$ with predicted lists). Counting from the code gains only with
+oraclecnt ($+8.2$) and loses with oracle ($-7.3$) and threshold ($-23.3$), where the model corrects bad counts from the
+video. The mix therefore raises VSI-Bench by $+2.3$ (oracle), $+4.1$ (oraclecnt) and $+9.5$ (ground truth), but lowers it
+by $2.1$ on the threshold list; leaving counting to the model there would give about 70.8 ($+0.8$, from the task scores).
+
+\begin{table}[h]
+\centering
+\caption{Code for counting, relative distance and relative direction where it has an answer, the Exp1 model for all
+other questions (5,130; MRA or accuracy, \%). App.\ order, abs.\ distance, size, room size and route planning are the
+model's in both rows. ``From code'': answers taken from the code.}
+\label{tab:agent-code-mix3}
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{llrrrrrrrrrrr}
+\toprule
+List & Answered by & Full & Deb. & App. & Abs. & Count & Rel.\ dir. & Rel.\ dist. & Size & Room & Route & From code \\
+\midrule
+threshold & model & \textbf{70.0} & 63.3 & 80.7 & 58.5 & \textbf{77.1} & 77.0 & 68.7 & 75.7 & 73.1 & 49.5 & -- \\
+          & mix   & 67.9 & \textbf{63.7} & 80.7 & 58.5 & 53.8 & \textbf{81.8} & \textbf{69.9} & 75.7 & 73.1 & 49.5 & 1,599 \\
+\midrule
+oracle    & model & 71.3 & 64.8 & 81.9 & 61.8 & \textbf{79.9} & 77.9 & 70.3 & 75.8 & 72.4 & 50.5 & -- \\
+          & mix   & \textbf{73.6} & \textbf{69.2} & 81.9 & 61.8 & 72.6 & \textbf{90.8} & \textbf{83.1} & 75.8 & 72.4 & 50.5 & 1,828 \\
+\midrule
+oraclecnt & model & 71.8 & 65.5 & 80.9 & 62.5 & 82.3 & 78.0 & 71.5 & 75.8 & 73.2 & 50.0 & -- \\
+          & mix   & \textbf{75.9} & \textbf{72.3} & 80.9 & 62.5 & \textbf{90.5} & \textbf{90.0} & \textbf{84.2} & 75.8 & 73.2 & 50.0 & 2,094 \\
+\midrule
+GT scene  & model & 70.3 & 63.4 & 80.7 & 60.8 & 76.6 & 77.2 & 69.2 & 76.6 & 73.1 & 47.9 & -- \\
+          & mix   & \textbf{79.8} & \textbf{76.3} & 80.7 & 60.8 & \textbf{99.0} & \textbf{100.0} & \textbf{100.0} & 76.6 & 73.1 & 47.9 & 2,243 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Summary.}
+The code and the model are good at different things. Geometric relations (relative direction and distance, and counting
+with a good list) are best computed from the boxes; metric estimates (object size, room size, and absolute distance) and
+the video-only tasks (appearance order, route planning) are best left to the model, which the video helps with and
+which current boxes do not support. The gain from the split grows with the quality of the boxes: with the same model it
+is $-2.1$ with the threshold list, $+4.1$ with oraclecnt and $+9.5$ with the ground-truth list. Choosing which SAM~3
+candidates to keep, not regressing the boxes, is the open problem. On ReVSI (Section~\ref{sec:revsi-code}) the code's
+lead is larger: on the questions it answers it averages 66.3--74.8 against 58.3--60.5 for the model, because ReVSI uses
+question forms VSI-Bench lacks (``farthest from'', ``facing in the opposite direction of'', counting two labels), on which
+the model fails and the code's rules do not.
