@@ -3,12 +3,17 @@
 7 tasks, overall = mean of the 7 tasks; also the mean over the 13 types, per source dataset, and video-only vs list rows.
     python3 score_revsi_preds.py <rows.jsonl> <run dir with predictions_shard*.jsonl> [...more run dirs]
     env IDS=<file of question ids, one per line>: score only those questions (e.g. revsi_score_answers.py --write-ids)
-    env TYPES=1: also print each of the 13 question types (n, score)"""
+    env TYPES=1: also print each of the 13 question types (n, score)
+    flags --ids FILE / --types (anywhere in argv) do the same as IDS= / TYPES=1 (for remote.py run, which passes no env)"""
 import json, glob, os, re, sys, collections
 import numpy as np
 LETTER = re.compile(r"\b([A-D])\b(?![a-z'])"); NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
 T = ['object_abs_distance', 'object_counting', 'object_rel_direction', 'object_rel_distance', 'object_size_estimation', 'room_size_estimation', 'route_planning']
 task = lambda t: re.sub(r'_(forward|backward)_(easy|hard)$|_(closest|farthest|single|multiple)$', '', t)
+_a = sys.argv[1:]
+if '--types' in _a: _a.remove('--types'); os.environ['TYPES'] = '1'
+if '--ids' in _a: _k = _a.index('--ids'); os.environ['IDS'] = _a[_k + 1]; del _a[_k:_k + 2]
+sys.argv = sys.argv[:1] + _a
 rows = {int(json.loads(l)['index']): json.loads(l) for l in open(sys.argv[1])}
 def sc(r, p):
     p = p.split('</think>')[-1]
