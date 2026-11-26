@@ -2,7 +2,8 @@
 (last option letter for multiple choice, last number otherwise), accuracy / MRA (.50-.95), the 13 question types pooled into
 7 tasks, overall = mean of the 7 tasks; also the mean over the 13 types, per source dataset, and video-only vs list rows.
     python3 score_revsi_preds.py <rows.jsonl> <run dir with predictions_shard*.jsonl> [...more run dirs]
-    env IDS=<file of question ids, one per line>: score only those questions (e.g. revsi_score_answers.py --write-ids)"""
+    env IDS=<file of question ids, one per line>: score only those questions (e.g. revsi_score_answers.py --write-ids)
+    env TYPES=1: also print each of the 13 question types (n, score)"""
 import json, glob, os, re, sys, collections
 import numpy as np
 LETTER = re.compile(r"\b([A-D])\b(?![a-z'])"); NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
@@ -29,4 +30,5 @@ for d in sys.argv[2:]:
     print(f"{d.rstrip('/').split('/')[-1]}: {len(P)}/{len(rows)} answers | overall (7 tasks) {mean7(s):.1f} | mean of {len(sq)} types {100 * np.mean([np.mean(v) for v in sq.values()]):.1f}")
     print('   ' + ' | '.join(f"{t} {100 * np.mean(s[t]):.1f}" for t in T if s[t]))
     print('   ' + ' | '.join(f"{k} {mean7(v):.1f} (n{sum(map(len, v.values()))})" for k, v in sorted(sdd.items())))
+    if os.environ.get('TYPES'): print('   types: ' + ' | '.join(f"{t} {100 * np.mean(v):.1f} (n{len(v)})" for t, v in sorted(sq.items())))
     print('   ' + ' | '.join(f"{k}: n{len(v)} mean {100 * np.mean(v):.1f}" for k, v in su.items()))

@@ -42,4 +42,9 @@ Exp2: the plan
 4. Appearance, room size, route:  
 Exp3: use vlm to drop the 2D seg for better 3D box as s-agent-2.0
 
+2026.11.25
+Exp1: test oracle/oraclelen boxes list of ReVSI with code-solver.
 
+Discuss with Octave: 
+
+2026.11.26 

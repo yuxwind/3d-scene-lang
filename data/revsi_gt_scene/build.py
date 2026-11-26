@@ -9,11 +9,13 @@ box axes. A per-dataset check prints how many boxes have an axis within 25 deg o
 
 Batches use the prompt of the VSI-Bench full-GT no-code runs (claude_nocode_scenelang_fullgt_all): the same scene
 description, then the question, "Options:" + one option per line + "Answer with the option letter." for multiple
-choice, "Answer with a number only, in the unit the question asks for." otherwise. Grouped by dataset and question
-type, <= --max_q questions and <= --max_chars characters per batch.
+choice, "Answer with a number only, in the unit the question asks for." otherwise. Batches are per question type,
+<= --max_q questions and <= --max_chars characters, and hold AT MOST ONE QUESTION PER SCENE (owner's rule, 2026-11-22:
+questions on the same scene must not see each other's options); each question goes to the first batch of its type
+that has no question on its scene yet and still has room.
 
     python build.py --revsi_dir R --out_dir D [--max_q 40] [--max_chars 150000]
-writes D/batches/<dataset>_<type>_<NN>.txt, D/rows.jsonl (id, dataset, scene_id, question_type, ground_truth, batch),
+writes D/batches/<question_type>_<NNN>.txt, D/rows.jsonl (id, dataset, scene_id, question_type, ground_truth, batch),
 D/manifest.json ({batch: [ids]}), D/scene_check.json. Needs numpy + pandas (jz: remote.py run --env h100).
 """
 import argparse, collections, json, math, re
@@ -79,26 +81,27 @@ def main():
         else:
             tail = NUM_POST + "\n"
         block = f"=== QUESTION id={r.id} ===\n{INTRO}<scene>\n{scenes[key]}\n</scene>\n{r.question}\n{tail}\n"
-        groups[(r.dataset, r.question_type)].append((int(r.id), block, r))
+        groups[r.question_type].append((int(r.id), block, r))
     man, rows, sizes = {}, [], []
-    for (ds, qt), items in sorted(groups.items()):
-        k, cur, n = 0, [], 0
-        def flush():
-            nonlocal k, cur, n
-            if not cur:
-                return
-            name = f"{re.sub(r'[^A-Za-z0-9]+', '', ds)}_{qt}_{k:02d}"
-            (D / "batches" / f"{name}.txt").write_text("".join(b for _, b, _ in cur))
-            man[name] = [i for i, _, _ in cur]; sizes.append(n)
-            for i, _, r in cur:
+    for qt, items in sorted(groups.items()):
+        bins = []  # each: {"scenes": set, "items": [...], "chars": int}
+        for it in items:
+            sc = (it[2].dataset, str(it[2].scene_id))
+            b = next((b for b in bins if sc not in b["scenes"] and len(b["items"]) < a.max_q
+                      and b["chars"] + len(it[1]) <= a.max_chars), None)
+            if b is None:
+                b = {"scenes": set(), "items": [], "chars": 0}; bins.append(b)
+            b["scenes"].add(sc); b["items"].append(it); b["chars"] += len(it[1])
+        for k, b in enumerate(bins):
+            name = f"{qt}_{k:03d}"
+            (D / "batches" / f"{name}.txt").write_text("".join(x[1] for x in b["items"]))
+            man[name] = [x[0] for x in b["items"]]; sizes.append(b["chars"])
+            for i, _, r in b["items"]:
                 rows.append({"id": i, "dataset": r.dataset, "scene_id": str(r.scene_id), "question_type": r.question_type,
                              "ground_truth": str(r.ground_truth), "batch": name})
-            k += 1; cur, n = [], 0
-        for it in items:
-            if cur and (len(cur) >= a.max_q or n + len(it[1]) > a.max_chars):
-                flush()
-            cur.append(it); n += len(it[1])
-        flush()
+    # the rule, checked
+    per = collections.Counter((r["batch"], r["dataset"], r["scene_id"]) for r in rows)
+    assert max(per.values()) == 1, "a batch has two questions on one scene"
     json.dump(man, open(D / "manifest.json", "w"), indent=0)
     with open(D / "rows.jsonl", "w") as f:
         for r in rows:

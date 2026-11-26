@@ -4,11 +4,12 @@
 Same metric as playground/zeroshot_revsi/eval_revsi.py (lmms-eval revsi): first word of the answer; multiple choice
 exact match on the letter; numbers MRA over thresholds .50-.95 (rel. error <= 1 - thr); 13 subtypes averaged into
 7 tasks (rel. direction 4, rel. distance 2, counting 2, room size 2); overall = mean of the 7.
-usage: revsi_score_answers.py RUN_DIR [--gt ROWS] [--by-dataset] [--json OUT] [--answered] [--write-ids FILE] [--ids FILE]
+usage: revsi_score_answers.py RUN_DIR [--gt ROWS] [--by-dataset] [--json OUT] [--answered] [--write-ids FILE] [--ids FILE] [--types]
   --gt: GT rows, default RUN_DIR/rows.jsonl (jz runs). A .parquet (e.g. /scr/xinyu/data/ReVSI/64_frame/
         test-00000-of-00001.parquet, for gandalf claude_nocode_s3/revsi_gt) is read with pandas (training env).
   --answered: score only questions whose answer is not "none" (the code solver's no-answer); --write-ids FILE: write
         the scored question ids (one per line), e.g. to score another run on the same questions with --ids FILE.
+  --types: also print each of the 13 question types (n, score).
 prints: answered/total, overall, the 7 tasks (n). stdlib only, except --gt *.parquet.
 """
 import argparse, collections, glob, json, os
@@ -47,7 +48,7 @@ def score(rows):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("run_dir"); ap.add_argument("--by-dataset", action="store_true")
     ap.add_argument("--json"); ap.add_argument("--gt"); ap.add_argument("--answered", action="store_true")
-    ap.add_argument("--write-ids"); ap.add_argument("--ids"); a = ap.parse_args()
+    ap.add_argument("--write-ids"); ap.add_argument("--ids"); ap.add_argument("--types", action="store_true"); a = ap.parse_args()
     A = {}
     for f in glob.glob(os.path.join(a.run_dir, "out", "*.json")):
         if f.endswith(".meta.json"):
@@ -73,6 +74,10 @@ def main():
     ov, o = score(got)
     print(f"answered {len(got)}/{len(rows)}  overall {ov:.1f}  (cost so far ${cost:.2f})")
     print("   " + " | ".join(f"{k} {100 * v:.1f} (n{n})" for k, (v, n) in sorted(o.items())))
+    if a.types:
+        by = collections.defaultdict(list)
+        for r in got: by[r["question_type"]].append(r["acc"])
+        print("   types: " + " | ".join(f"{t} {100 * mean(v):.1f} (n{len(v)})" for t, v in sorted(by.items())))
     res = {"all": {"n": len(got), "overall": round(ov, 1), **{k: round(100 * v, 1) for k, (v, _) in o.items()}}}
     if a.by_dataset:
         for ds in sorted({r["dataset"] for r in got}):
