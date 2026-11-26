@@ -7,6 +7,9 @@ usage: vsibench_code_answered.py --code LIST=oracle_code_<list>.json [...] --mod
            ground_truth, prediction; "none" = no answer)
   --model  eval_scenelang runs (predictions_shard*.jsonl, loaded as qwen_eval_scores.py), paired with the code list of
            the same LIST name (e.g. the model run on the same box list). Several --model per LIST are fine (NAME@LIST=DIR).
+  --mix TASK,TASK  instead: on ALL questions, the code's answer for these tasks where it has one, the model's otherwise
+           (prefix match, e.g. object_counting,object_rel_distance,object_rel_direction); prints model alone vs mix:
+           full, debiased (from the code rows' "debiased"), 8 tasks, and how many answers came from the code.
 Scoring: sr_vggt.eval.score (the VSI-Bench scorer of every reported number), per task and per rel. direction subtype
 (easy / medium / hard); "mean" = mean over the tasks present. Needs the training env ($SR_PYTHON_BIN via remote.py run).
 """
@@ -36,9 +39,42 @@ def table(rows):
     return out
 
 
+T8 = [("obj_appearance_order_accuracy", "App."), ("object_abs_distance_mra", "Abs."), ("object_counting_mra", "Count"),
+      ("object_rel_direction_accuracy", "RelDir"), ("object_rel_distance_accuracy", "RelDist"),
+      ("object_size_estimation_mra", "Size"), ("room_size_estimation_mra", "Room"), ("route_planning_accuracy", "Route")]
+
+
+def mix(a):
+    tasks = tuple(a.mix.split(","))
+    print(f"mix: code for {', '.join(tasks)} where it answers, model otherwise")
+    print(f"{'list':10} {'answered by':18} {'n':>5} {'full':>6} {'deb.':>6} " + " ".join(f"{c:>7}" for _, c in T8) + "  from code")
+    for spec in a.code:
+        L, f = spec.split("=", 1)
+        code = {r["index"]: r for r in json.load(open(f))}
+        deb = {i for i, r in code.items() if r.get("debiased")}
+        for m in a.model:
+            name, d = m.split("=", 1)
+            nm, _, lst = name.rpartition("@") if "@" in name else ("model", "", name)
+            if lst != L: continue
+            P = load(d); M, used = [], 0
+            for i, r in P.items():
+                c = code.get(i)
+                if c and r["question_type"].startswith(tasks) and str(c["prediction"]).strip().lower() != "none":
+                    M.append(dict(r, prediction=c["prediction"])); used += 1
+                else:
+                    M.append(r)
+            for lab, rows in ((nm, list(P.values())), ("code, else " + nm, M)):
+                s, sd = score(rows), score([r for r in rows if r["index"] in deb])
+                print(f"{L:10} {lab:18} {len(rows):5} {100 * s['vsibench/overall']:6.1f} {100 * sd['vsibench/overall']:6.1f} "
+                      + " ".join(f"{100 * s.get('vsibench/' + k, float('nan')):7.1f}" for k, _ in T8)
+                      + (f"  {used}" if rows is M else ""))
+
+
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--code", action="append", required=True)
-    ap.add_argument("--model", action="append", default=[]); a = ap.parse_args()
+    ap.add_argument("--model", action="append", default=[]); ap.add_argument("--mix"); a = ap.parse_args()
+    if a.mix:
+        return mix(a)
     cols = [c for _, _, c in TASKS] + ["dir easy", "dir medium", "dir hard", "mean"]
     print(f"{'list':10} {'answered by':24} {'n':>5} " + " ".join(f"{c:>10}" for c in cols))
     for spec in a.code:
