@@ -208,5 +208,21 @@
     "result_n": 1,
     "recorded": "2026-11-25 20:05",
     "commit": "9b42b2a"
+  },
+  {
+    "time": "2026-11-27 16:13",
+    "name": "claude_nocode_vsibench_oraclecnt",
+    "host": "gandalf",
+    "description": "Claude Opus 5.5 (no code, Read/Write only) on VSI-Bench (5,130 q) with the SAM 3 + VGGT-SLAM oraclecnt list as text, score-aware prompt, no video. 289 batches (claude_batches.py); agents ran on the Mac (workflow), answers copied here; 15 skipped answers filled by a second pass",
+    "inputs": [
+      "/scr/xinyu/projects/3d-scene-lang/data/scenelang_vsibench_slam/rows_s3q_rr_oraclecnt_all5130_full.jsonl"
+    ],
+    "output": "/scr/xinyu/projects/vggtdet_es56/runs/claude_nocode_s3/oraclecnt",
+    "result": "/scr/xinyu/projects/vggtdet_es56/runs/claude_nocode_s3/oraclecnt/out/*.json",
+    "status": "done",
+    "status_info": "full 64.9 / debiased 61.1 (vsibench_score_answers.py)",
+    "result_n": 289,
+    "recorded": "2026-11-27 16:14",
+    "commit": "0a34f7f"
   }
 ]
