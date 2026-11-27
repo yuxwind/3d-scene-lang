@@ -7,7 +7,8 @@ usage: vsibench_code_answered.py --code LIST=oracle_code_<list>.json [...] --mod
            ground_truth, prediction; "none" = no answer)
   --model  eval_scenelang runs (predictions_shard*.jsonl, loaded as qwen_eval_scores.py), paired with the code list of
            the same LIST name (e.g. the model run on the same box list). Several --model per LIST are fine (NAME@LIST=DIR).
-           A model may also be one predictions .jsonl file (e.g. eval_checkpoint-743_full/predictions_final_firstline.jsonl).
+           A model may also be a Claude answer dir (claude: prefix, e.g. claude:<run>/oraclecnt: <dir>/out/*.json {"answers":
+           {index: answer}}; first A-D letter / first number, as vsibench_score_answers.py), or one predictions .jsonl file (e.g. eval_checkpoint-743_full/predictions_final_firstline.jsonl).
   --mixrow TASK,TASK  also print, per model, a third row on the same questions: the code's answer for these tasks, the
            model's for the others.
   --with-never  also add every appearance order and route planning question (the code never answers them: scored 0 for
@@ -21,7 +22,7 @@ usage: vsibench_code_answered.py --code LIST=oracle_code_<list>.json [...] --mod
 Scoring: sr_vggt.eval.score (the VSI-Bench scorer of every reported number), per task and per rel. direction subtype
 (easy / medium / hard); "mean" = mean over the tasks present. Needs the training env ($SR_PYTHON_BIN via remote.py run).
 """
-import argparse, collections, json, os, re, sys
+import argparse, collections, glob, json, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..")); sys.path.insert(0, HERE)
@@ -29,8 +30,19 @@ from sr_vggt.eval import score  # noqa: E402
 from qwen_eval_scores import load as _load_dir  # noqa: E402
 
 
-def load(d):
-    """eval dir (predictions_shard*.jsonl) or a single predictions .jsonl -> {index: row}."""
+def load(d, base=None):
+    """eval dir (predictions_shard*.jsonl), a single predictions .jsonl, or claude:<dir> (needs base rows) -> {index: row}."""
+    if d.startswith("claude:"):
+        A = {}
+        for f in glob.glob(os.path.join(d[7:], "out", "*.json")):
+            if not f.endswith(".meta.json"):
+                A.update({int(k): v for k, v in json.load(open(f))["answers"].items()})
+        out = {}
+        for i, r in base.items():
+            a = str(A.get(i, ""))
+            m = re.findall(r"[A-D]", a.upper()) if r.get("options") else re.findall(r"-?\d+\.?\d*", a.replace(",", ""))
+            out[i] = dict(r, prediction=m[0] if m else "none")
+        return out
     if not d.endswith(".jsonl"):
         return _load_dir(d)
     out = {}
@@ -111,7 +123,7 @@ def split(a):
             name, d = m.split("=", 1)
             nm, _, lst = name.rpartition("@") if "@" in name else ("model", "", name)
             if lst != L: continue
-            P = load(d)
+            P = load(d, code)
             parts = [("code", [code[i] for i in P if i in ok]), (nm + " (rest)", [P[i] for i in P if i not in ok]),
                      ("mix", [dict(P[i], prediction=code[i]["prediction"]) if i in ok else P[i] for i in P])]
             for lab, rows in parts:
