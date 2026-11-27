@@ -180,8 +180,12 @@ video model sees no list, so it isolates what the boxes add. Lists: the SAM~3 + 
 the share of the 3,194 ground-truth objects (287 scenes) the list covers, matched as for the oracle lists: one-to-one per
 label, with the position check (well placed) and without it (any box of the label).
 
-The video model is ahead of the code on average with every predicted list (71.4--75.5 against 52.6--70.9), but the
-mix beats both with oracle (77.7) and oraclecnt (79.0), and with the ground truth (83.9 against 70.8). The code wins
+The appearance order and route planning columns are added with every such question (812): the code scores 0 there, the
+video model and the mix answer them from the video (81.1, 49.0); ``Mean (8)'' averages all eight tasks, ``Mean (6)'' the
+six the code can answer. On the six tasks the video model is ahead of the code with every predicted list (71.4--75.5
+against 52.6--70.9), but the mix beats both with oracle (77.7) and oraclecnt (79.0), and with the ground truth (83.9
+against 70.8). Over all eight tasks the mix gains $+4.0$ (oracle), $+5.7$ (oraclecnt) and $+9.8$ (ground truth) over the
+video model; with the ground truth this is the whole benchmark (79.2 against the video model's 69.4). The code wins
 relative direction with every list (83.4--96.8 against 78.7--89.6). Relative distance and counting need a clean list: the
 code beats the video model on relative distance only with oracle, oraclecnt and the ground truth (85.5--100 against
 69.0--71.6), and on counting only with oraclecnt and the ground truth (90.5, 99.0 against 73.6). With score lists the code
@@ -189,53 +193,55 @@ counts every box and measures distance to the nearest box of a label, so extra b
 from 0.7 to 0.1 covers more ground-truth objects (71.6\% to 81.7\% well placed, close to oracle's 82.3\%) and lets the
 code answer more questions (3,138 to 3,979), but counting falls from 53.5 to 28.6 and relative distance from 72.5 to
 57.8. Relative direction uses the best-scoring box of each label and loses less (91.6 to 83.4). Coverage alone is
-therefore not enough: oracle reaches the same coverage without the extra boxes. With score lists the mix (62.6--71.4)
-is below the video model, mostly because of counting and partly relative distance; a mix that gives the code only relative direction would gain
+therefore not enough: oracle reaches the same coverage without the extra boxes. With score lists the mix (62.6--71.4 on six tasks,
+63.2--69.8 on eight) is below the video model, mostly because of counting and partly relative distance; a mix that gives the code only relative direction would gain
 with every list.
 
 \begin{table}[h]
 \centering
-\caption{Code solver, the video-only model and their mix on the questions the code answers, per list (MRA or
-accuracy, \%). Video: SFT Qwen3.5-4B fine-tuned on video alone (\texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b}, checkpoint 743;
-69.4 / 63.7 on all of VSI-Bench); it sees no list, so its answers are the same for every list. Mix: the code's answer
-for counting, relative distance and relative direction, the video model's for the other tasks. GT kept: share of the
-ground-truth objects with a well-placed box / any box of the label. Score lists: question names + ``room door''.
-Appearance order and route planning are never answered; ``Mean'': mean of the six tasks. Bold: best of the three.}
+\caption{Code solver, the video-only model and their mix on the questions the code answers plus every appearance order
+and route planning question, per list (MRA or accuracy, \%). Video: SFT Qwen3.5-4B fine-tuned on video alone
+(\texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b}, checkpoint 743; 69.4 / 63.7 on all of VSI-Bench); it sees no list, so its answers are the same
+for every list. Mix: the code's answer for counting, relative distance and relative direction, the video model's for
+the other tasks. The code never answers appearance order and route planning (0); the video model and the mix answer
+them from the video. GT kept: share of the ground-truth objects with a well-placed box / any box of the label. Score
+lists: question names + ``room door''. Questions: the code's answered questions + the 812 appearance order and route
+planning questions. Bold: best of the three.}
 \label{tab:agent-code-answered}
 \resizebox{\linewidth}{!}{%
-\begin{tabular}{lrrlrrrrrrr}
+\begin{tabular}{lrrlrrrrrrrrrr}
 \toprule
-List & GT kept & Questions & & Count & Abs. & Size & Room & Rel.\ dist. & Rel.\ dir. & Mean \\
+List & GT kept & Questions & & Count & Abs. & Size & Room & Rel.\ dist. & Rel.\ dir. & Mean (6) & App. & Route & Mean (8) \\
 \midrule
-score $\geq 0.1$ (no filter) & 81.7 / 94.4 & 3,979 & code  & 28.6 & 38.4 & 61.5 & 46.2 & 57.8 & \textbf{83.4} & 52.6 \\
- & & & video & \textbf{73.6} & \textbf{55.3} & \textbf{77.4} & \textbf{73.4} & \textbf{70.1} & 78.7 & \textbf{71.4} \\
- & & & mix   & 28.6 & \textbf{55.3} & \textbf{77.4} & \textbf{73.4} & 57.8 & \textbf{83.4} & 62.6 \\
-score $\geq 0.3$ & 79.6 / 91.9 & 3,800 & code  & 40.2 & 45.1 & 62.6 & 44.8 & 62.3 & \textbf{86.5} & 56.9 \\
- & & & video & \textbf{73.6} & \textbf{55.7} & \textbf{77.8} & \textbf{73.4} & \textbf{71.2} & 79.5 & \textbf{71.9} \\
- & & & mix   & 40.2 & \textbf{55.7} & \textbf{77.8} & \textbf{73.4} & 62.3 & \textbf{86.5} & 66.0 \\
-score $\geq 0.5$ & 75.8 / 86.0 & 3,544 & code  & 49.9 & 53.5 & 63.8 & 41.7 & 68.2 & \textbf{88.0} & 60.9 \\
- & & & video & \textbf{73.6} & \textbf{56.2} & \textbf{78.5} & \textbf{73.4} & \textbf{72.9} & 80.3 & \textbf{72.5} \\
- & & & mix   & 49.9 & \textbf{56.2} & \textbf{78.5} & \textbf{73.4} & 68.2 & \textbf{88.0} & 69.0 \\
-score $\geq 0.7$ & 71.6 / 79.9 & 3,138 & code  & 53.5 & \textbf{58.9} & 65.5 & 39.2 & 72.5 & \textbf{91.6} & 63.5 \\
- & & & video & \textbf{73.6} & 57.4 & \textbf{79.5} & \textbf{73.4} & \textbf{74.3} & 83.4 & \textbf{73.6} \\
- & & & mix   & 53.5 & 57.4 & \textbf{79.5} & \textbf{73.4} & 72.5 & \textbf{91.6} & 71.3 \\
-score $\geq 0.9$ & 53.4 / 58.0 & 2,215 & code  & 36.6 & \textbf{63.1} & 68.0 & 30.7 & 67.7 & \textbf{95.2} & 60.2 \\
- & & & video & \textbf{73.6} & 60.2 & \textbf{82.4} & \textbf{73.6} & \textbf{73.7} & 89.6 & \textbf{75.5} \\
- & & & mix   & 36.6 & 60.2 & \textbf{82.4} & \textbf{73.6} & 67.7 & \textbf{95.2} & 69.3 \\
+score $\geq 0.1$ (no filter) & 81.7 / 94.4 & 4,791 & code & 28.6 & 38.4 & 61.5 & 46.2 & 57.8 & \textbf{83.4} & 52.6 & 0.0 & 0.0 & 39.5 \\
+ & &  & video & \textbf{73.6} & \textbf{55.3} & \textbf{77.4} & \textbf{73.4} & \textbf{70.1} & 78.7 & \textbf{71.4} & \textbf{81.1} & \textbf{49.0} & \textbf{69.8} \\
+ & &  & mix & 28.6 & \textbf{55.3} & \textbf{77.4} & \textbf{73.4} & 57.8 & \textbf{83.4} & 62.6 & \textbf{81.1} & \textbf{49.0} & 63.2 \\
+score $\geq 0.3$ & 79.6 / 91.9 & 4,612 & code & 40.2 & 45.1 & 62.6 & 44.8 & 62.3 & \textbf{86.5} & 56.9 & 0.0 & 0.0 & 42.7 \\
+ & &  & video & \textbf{73.6} & \textbf{55.7} & \textbf{77.8} & \textbf{73.4} & \textbf{71.2} & 79.5 & \textbf{71.9} & \textbf{81.1} & \textbf{49.0} & \textbf{70.2} \\
+ & &  & mix & 40.2 & \textbf{55.7} & \textbf{77.8} & \textbf{73.4} & 62.3 & \textbf{86.5} & 66.0 & \textbf{81.1} & \textbf{49.0} & 65.7 \\
+score $\geq 0.5$ & 75.8 / 86.0 & 4,356 & code & 49.9 & 53.5 & 63.8 & 41.7 & 68.2 & \textbf{88.0} & 60.9 & 0.0 & 0.0 & 45.6 \\
+ & &  & video & \textbf{73.6} & \textbf{56.2} & \textbf{78.5} & \textbf{73.4} & \textbf{72.9} & 80.3 & \textbf{72.5} & \textbf{81.1} & \textbf{49.0} & \textbf{70.6} \\
+ & &  & mix & 49.9 & \textbf{56.2} & \textbf{78.5} & \textbf{73.4} & 68.2 & \textbf{88.0} & 69.0 & \textbf{81.1} & \textbf{49.0} & 68.0 \\
+score $\geq 0.7$ & 71.6 / 79.9 & 3,950 & code & 53.5 & \textbf{58.9} & 65.5 & 39.2 & 72.5 & \textbf{91.6} & 63.5 & 0.0 & 0.0 & 47.6 \\
+ & &  & video & \textbf{73.6} & 57.4 & \textbf{79.5} & \textbf{73.4} & \textbf{74.3} & 83.4 & \textbf{73.6} & \textbf{81.1} & \textbf{49.0} & \textbf{71.4} \\
+ & &  & mix & 53.5 & 57.4 & \textbf{79.5} & \textbf{73.4} & 72.5 & \textbf{91.6} & 71.3 & \textbf{81.1} & \textbf{49.0} & 69.7 \\
+score $\geq 0.9$ & 53.4 / 58.0 & 3,027 & code & 36.6 & \textbf{63.1} & 68.0 & 30.7 & 67.7 & \textbf{95.2} & 60.2 & 0.0 & 0.0 & 45.2 \\
+ & &  & video & \textbf{73.6} & 60.2 & \textbf{82.4} & \textbf{73.6} & \textbf{73.7} & 89.6 & \textbf{75.5} & \textbf{81.1} & \textbf{49.0} & \textbf{72.9} \\
+ & &  & mix & 36.6 & 60.2 & \textbf{82.4} & \textbf{73.6} & 67.7 & \textbf{95.2} & 69.3 & \textbf{81.1} & \textbf{49.0} & 68.2 \\
 \midrule
-threshold ($\geq 0.7$, + radiator) & 72.0 / 80.4 & 3,181 & code  & 53.8 & \textbf{59.4} & 65.2 & 39.4 & 72.9 & \textbf{91.8} & 63.8 \\
- & & & video & \textbf{73.6} & 57.2 & \textbf{79.2} & \textbf{73.4} & \textbf{74.3} & 83.2 & \textbf{73.5} \\
- & & & mix   & 53.8 & 57.2 & \textbf{79.2} & \textbf{73.4} & 72.9 & \textbf{91.8} & 71.4 \\
+threshold ($\geq 0.7$, + radiator) & 72.0 / 80.4 & 3,993 & code & 53.8 & \textbf{59.4} & 65.2 & 39.4 & 72.9 & \textbf{91.8} & 63.8 & 0.0 & 0.0 & 47.8 \\
+ & &  & video & \textbf{73.6} & 57.2 & \textbf{79.2} & \textbf{73.4} & \textbf{74.3} & 83.2 & \textbf{73.5} & \textbf{81.1} & \textbf{49.0} & \textbf{71.4} \\
+ & &  & mix & 53.8 & 57.2 & \textbf{79.2} & \textbf{73.4} & 72.9 & \textbf{91.8} & 71.4 & \textbf{81.1} & \textbf{49.0} & 69.8 \\
 \midrule
-oracle & 82.3 / 82.3 & 3,578 & code  & 72.6 & \textbf{66.6} & 63.2 & 32.7 & \textbf{87.7} & \textbf{96.8} & 69.9 \\
- & & & video & \textbf{73.6} & 57.5 & \textbf{78.1} & \textbf{73.2} & 71.6 & 79.5 & 72.3 \\
- & & & mix   & 72.6 & 57.5 & \textbf{78.1} & \textbf{73.2} & \textbf{87.7} & \textbf{96.8} & \textbf{77.7} \\
-oraclecnt & 82.3 / 94.9 & 4,049 & code  & \textbf{90.5} & \textbf{62.9} & 60.7 & 33.6 & \textbf{85.5} & \textbf{92.0} & 70.9 \\
- & & & video & 73.6 & 55.2 & \textbf{77.2} & \textbf{73.4} & 70.2 & 79.0 & 71.4 \\
- & & & mix   & \textbf{90.5} & 55.2 & \textbf{77.2} & \textbf{73.4} & \textbf{85.5} & \textbf{92.0} & \textbf{79.0} \\
-GT scene (ref.) & 100 / 100 & 4,318 & code  & \textbf{99.0} & \textbf{97.4} & \textbf{100.0} & 45.8 & \textbf{100.0} & \textbf{100.0} & \textbf{90.4} \\
- & & & video & 73.6 & 55.1 & 76.2 & \textbf{73.4} & 69.0 & 77.6 & 70.8 \\
- & & & mix   & \textbf{99.0} & 55.1 & 76.2 & \textbf{73.4} & \textbf{100.0} & \textbf{100.0} & 83.9 \\
+oracle & 82.3 / 82.3 & 4,390 & code & 72.6 & \textbf{66.6} & 63.2 & 32.7 & \textbf{87.7} & \textbf{96.8} & 69.9 & 0.0 & 0.0 & 52.5 \\
+ & &  & video & \textbf{73.6} & 57.5 & \textbf{78.1} & \textbf{73.2} & 71.6 & 79.5 & 72.3 & \textbf{81.1} & \textbf{49.0} & 70.5 \\
+ & &  & mix & 72.6 & 57.5 & \textbf{78.1} & \textbf{73.2} & \textbf{87.7} & \textbf{96.8} & \textbf{77.7} & \textbf{81.1} & \textbf{49.0} & \textbf{74.5} \\
+oraclecnt & 82.3 / 94.9 & 4,861 & code & \textbf{90.5} & \textbf{62.9} & 60.7 & 33.6 & \textbf{85.5} & \textbf{92.0} & 70.9 & 0.0 & 0.0 & 53.1 \\
+ & &  & video & 73.6 & 55.2 & \textbf{77.2} & \textbf{73.4} & 70.2 & 79.0 & 71.4 & \textbf{81.1} & \textbf{49.0} & 69.8 \\
+ & &  & mix & \textbf{90.5} & 55.2 & \textbf{77.2} & \textbf{73.4} & \textbf{85.5} & \textbf{92.0} & \textbf{79.0} & \textbf{81.1} & \textbf{49.0} & \textbf{75.5} \\
+GT scene (ref.) & 100 / 100 & 5,130 & code & \textbf{99.0} & \textbf{97.4} & \textbf{100.0} & 45.8 & \textbf{100.0} & \textbf{100.0} & \textbf{90.4} & 0.0 & 0.0 & 67.8 \\
+ & &  & video & 73.6 & 55.1 & 76.2 & \textbf{73.4} & 69.0 & 77.6 & 70.8 & \textbf{81.1} & \textbf{49.0} & 69.4 \\
+ & &  & mix & \textbf{99.0} & 55.1 & 76.2 & \textbf{73.4} & \textbf{100.0} & \textbf{100.0} & 83.9 & \textbf{81.1} & \textbf{49.0} & \textbf{79.2} \\
 \bottomrule
 \end{tabular}}
 \end{table}
