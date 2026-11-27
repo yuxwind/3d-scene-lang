@@ -12,6 +12,8 @@ usage: vsibench_code_answered.py --code LIST=oracle_code_<list>.json [...] --mod
            model's for the others.
   --with-never  also add every appearance order and route planning question (the code never answers them: scored 0 for
            the code; the model's answer for the model and the mix rows); prints App., Route, "mean" (6 tasks) and "mean8".
+  --split  instead: per list three rows that partition the benchmark: code on the questions it answers, the model on all
+           the others, and the mix (code, else model) on all questions; 8 tasks (n per task), mean over the tasks present.
   --mix TASK,TASK  instead: on ALL questions, the code's answer for these tasks where it has one, the model's otherwise
            (prefix match, e.g. object_counting,object_rel_distance,object_rel_direction); prints model alone vs mix:
            full, debiased (from the code rows' "debiased"), 8 tasks, and how many answers came from the code.
@@ -97,11 +99,38 @@ def mix(a):
                       + (f"  {used}" if rows is M else ""))
 
 
+def split(a):
+    print(f"{'list':10} {'rows':10} {'n':>5} {'mean':>6} " + " ".join(f"{c:>12}" for _, c in T8) + "   (mean over tasks present)")
+    for spec in a.code:
+        L, f = spec.split("=", 1)
+        code = {r["index"]: r for r in json.load(open(f))}
+        ok = {i for i, r in code.items() if str(r["prediction"]).strip().lower() != "none"}
+        for m in a.model:
+            name, d = m.split("=", 1)
+            nm, _, lst = name.rpartition("@") if "@" in name else ("model", "", name)
+            if lst != L: continue
+            P = load(d)
+            parts = [("code", [code[i] for i in P if i in ok]), (nm + " (rest)", [P[i] for i in P if i not in ok]),
+                     ("mix", [dict(P[i], prediction=code[i]["prediction"]) if i in ok else P[i] for i in P])]
+            for lab, rows in parts:
+                s = score(rows); n = collections.Counter(r["question_type"].split("_easy")[0].split("_medium")[0].split("_hard")[0] for r in rows)
+                cells, vals = [], []
+                for k, c in T8:
+                    t = k.rsplit("_", 1)[0]
+                    if n.get(t):
+                        v = 100 * s["vsibench/" + k]; vals.append(v); cells.append(f"{v:5.1f} n{n[t]:<5}")
+                    else:
+                        cells.append(f"{'--':>12}")
+                print(f"{L:10} {lab:10} {len(rows):5} {sum(vals) / max(1, len(vals)):6.1f} " + " ".join(cells))
+
+
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--code", action="append", required=True)
-    ap.add_argument("--model", action="append", default=[]); ap.add_argument("--mix"); ap.add_argument("--mixrow"); ap.add_argument("--with-never", action="store_true"); a = ap.parse_args()
+    ap.add_argument("--model", action="append", default=[]); ap.add_argument("--mix"); ap.add_argument("--mixrow"); ap.add_argument("--with-never", action="store_true"); ap.add_argument("--split", action="store_true"); a = ap.parse_args()
     if a.mix:
         return mix(a)
+    if a.split:
+        return split(a)
     cols = [c for _, _, c in TASKS] + ["dir easy", "dir medium", "dir hard", "mean"] + (["App.", "Route", "mean8"] if a.with_never else [])
     print(f"{'list':10} {'answered by':24} {'n':>5} " + " ".join(f"{c:>10}" for c in cols))
     for spec in a.code:
