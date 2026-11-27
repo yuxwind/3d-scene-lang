@@ -168,40 +168,62 @@ slightly worse than the model ($-0.5$); answering it with the model too would gi
 % data/scenelang_vsibench_gt_firstcam/oracle_code_gt.json and runs/eval_q35vs_gandalf/exp1_s3q_rr_{full,oracle_full,
 % oraclecnt_full,gt_full}_rvs_question; scored with sr_vggt.eval.score.
 \paragraph{On the questions the code answers.}
-Table~\ref{tab:agent-code-answered} scores the code and the Exp1 model only on the questions the code answers (every
-named object has a box), on the same list. Exp1 was fine-tuned on video with ground-truth and detector lists at true
-scale, never on SAM~3 + VGGT-SLAM lists or estimated scale. Even there the model is ahead on average (74.4 against
-63.8--70.9 with predicted lists): it is better on object size ($+14$ to $+17$) and room size ($+34$ to $+40$), and on
-counting unless the list is oraclecnt. The code is better on relative direction (91.8--96.8 against 78.0--82.9, on every
-subtype) and relative distance (72.9--87.7 against 71.4--72.1). With the ground-truth list the code reaches 90.4 while
-the model stays at 72.2, about where it is with predicted lists: the model does not read the geometry off the boxes,
-even when the boxes are right.
+% Threshold rows (2026-11-27): code solver on rows_s3q_roomdoor{,_thr0.1,_thr0.3,_thr0.5,_thr0.9}_all5130_full.jsonl
+% (scripts/analysis/vsibench_thr_code.sh @86f30db -> oracle_code_thr<t>.json), model = mix-v2-1 runs
+% mixv2_1_s3q_roomdoor{,_thr<t>}_rvs_question (the Q6 sweep of Section~\ref{sec:sam3}); GT kept: vggt-slam-sam3
+% exps/vsibench_objects/keep_sweep.sh @4905c0c (s3_oracle_rows.py NOROWS=1 MINSCORE=<t>, with and without the position check).
+Table~\ref{tab:agent-code-answered} scores the code and a model only on the questions the code answers (every named
+object has a box), on the same list. The upper rows are the box-score threshold lists of Section~\ref{sec:sam3} (Q6),
+with the mix-v2-1 model that was run on them; the lower rows are the lists of this section with the Exp1 model. Exp1 was
+fine-tuned on video with ground-truth and detector lists at true scale, never on SAM~3 + VGGT-SLAM lists or estimated
+scale. ``GT kept'' is the share of the 3,194 ground-truth objects (287 scenes) that the list covers, matched as for the
+oracle lists: one-to-one per label, with the position check (well placed) and without it (any box of the label).
+
+The model is ahead on average with every predicted list (70.1--76.1 against 52.6--70.9): it is better on object size
+($+11$ to $+17$) and room size ($+26$ to $+42$), and on counting unless the list is oraclecnt. The code is better on
+relative direction with every list (83.4--96.8 against 76.6--94.1) and on relative distance once the list is clean
+(72.5--87.7 against 70.9--72.1 at threshold 0.7, oracle, oraclecnt). Lowering the threshold covers more ground-truth
+objects (71.6\% well placed at 0.7, 81.7\% with no threshold, close to oracle's 82.3\%) and lets the code answer more
+questions (3,138 to 3,979), but the extra boxes hurt it: counting falls from 53.5 to 28.6 and relative distance from 72.5
+to 57.8, since the code counts every box and takes the closest of all boxes of a label. Relative direction, which uses
+the best-scoring box of each label, loses less (91.6 to 83.4). So coverage alone is not enough: the oracle lists reach the
+same coverage without the extra boxes, and the code then gains on every relation task. With the ground-truth list the
+code reaches 90.4 while Exp1 stays at 72.2, about where it is with predicted lists: the model does not read the geometry
+off the boxes, even when the boxes are right.
 
 \begin{table}[h]
 \centering
-\caption{Code solver vs.\ the Exp1 model on the questions the code answers, same list (MRA or accuracy, \%). Each cell:
-code / model. Appearance order and route planning are never answered; ``Mean'': mean of the six tasks.}
+\caption{Code solver vs.\ a model on the questions the code answers, same list (MRA or accuracy, \%); per list, code
+(upper) and model (lower). GT kept: share of the ground-truth objects with a well-placed box / any box of the label.
+Threshold lists: question names + ``room door''; the Exp1 threshold list also prompts ``radiator''. Appearance order and
+route planning are never answered; ``Mean'': mean of the six tasks.}
 \label{tab:agent-code-answered}
-\small
-\setlength{\tabcolsep}{3.5pt}
-\begin{tabular}{lcccc}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{llrrlrrrrrrr}
 \toprule
- & threshold & oracle & oraclecnt & GT scene (ref.) \\
+List & Model & GT kept & Questions & & Count & Abs. & Size & Room & Rel.\ dist. & Rel.\ dir. & Mean \\
 \midrule
-Questions        & 3,181 & 3,578 & 4,049 & 4,318 \\
-Count            & 53.8 / \textbf{77.1} & 72.6 / \textbf{79.9} & \textbf{90.5} / 82.3 & \textbf{99.0} / 76.6 \\
-Abs.\ dist.      & 59.4 / \textbf{62.7} & \textbf{66.6} / 65.8 & 62.9 / \textbf{63.5} & \textbf{97.4} / 60.8 \\
-Obj.\ size       & 65.2 / \textbf{79.5} & 63.2 / \textbf{78.1} & 60.7 / \textbf{77.0} & \textbf{100.0} / 76.6 \\
-Room size        & 39.4 / \textbf{73.1} & 32.7 / \textbf{72.4} & 33.6 / \textbf{73.2} & 45.8 / \textbf{73.1} \\
-Rel.\ dist.      & \textbf{72.9} / 71.4 & \textbf{87.7} / 72.1 & \textbf{85.5} / 72.0 & \textbf{100.0} / 69.2 \\
-Rel.\ dir.       & \textbf{91.8} / 82.9 & \textbf{96.8} / 78.0 & \textbf{92.0} / 78.5 & \textbf{100.0} / 77.2 \\
-\quad easy       & \textbf{93.0} / 81.6 & \textbf{98.5} / 77.9 & \textbf{93.6} / 79.7 & \textbf{100.0} / 78.8 \\
-\quad medium     & \textbf{91.5} / 87.5 & \textbf{96.3} / 82.8 & \textbf{91.8} / 80.9 & \textbf{100.0} / 79.9 \\
-\quad hard       & \textbf{91.0} / 79.5 & \textbf{95.6} / 73.3 & \textbf{90.5} / 74.8 & \textbf{100.0} / 72.9 \\
+score $\geq 0.1$ (no filter) & mix-v2-1 & 81.7 / 94.4 & 3,979 & code  & 28.6 & 38.4 & 61.5 & 46.2 & 57.8 & \textbf{83.4} & 52.6 \\
+                             &          &             &       & model & \textbf{69.7} & \textbf{57.3} & \textbf{74.9} & \textbf{73.0} & \textbf{69.0} & 76.6 & \textbf{70.1} \\
+score $\geq 0.3$             & mix-v2-1 & 79.6 / 91.9 & 3,800 & code  & 40.2 & 45.1 & 62.6 & 44.8 & 62.3 & \textbf{86.5} & 56.9 \\
+                             &          &             &       & model & \textbf{70.9} & \textbf{58.4} & \textbf{75.4} & \textbf{72.4} & \textbf{69.7} & 79.1 & \textbf{71.0} \\
+score $\geq 0.5$             & mix-v2-1 & 75.8 / 86.0 & 3,544 & code  & 49.9 & 53.5 & 63.8 & 41.7 & 68.2 & \textbf{88.0} & 60.9 \\
+                             &          &             &       & model & \textbf{72.2} & \textbf{59.4} & \textbf{75.7} & \textbf{72.4} & \textbf{69.6} & 80.8 & \textbf{71.7} \\
+score $\geq 0.7$             & mix-v2-1 & 71.6 / 79.9 & 3,138 & code  & 53.5 & 58.9 & 65.5 & 39.2 & \textbf{72.5} & \textbf{91.6} & 63.5 \\
+                             &          &             &       & model & \textbf{73.5} & \textbf{61.4} & \textbf{76.8} & \textbf{72.7} & 70.9 & 83.3 & \textbf{73.1} \\
+score $\geq 0.9$             & mix-v2-1 & 53.4 / 58.0 & 2,215 & code  & 36.6 & 63.1 & 68.0 & 30.7 & 67.7 & \textbf{95.2} & 60.2 \\
+                             &          &             &       & model & \textbf{74.0} & 63.1 & \textbf{79.1} & \textbf{73.0} & \textbf{73.4} & 94.1 & \textbf{76.1} \\
 \midrule
-Mean             & 63.8 / \textbf{74.4} & 69.9 / \textbf{74.4} & 70.9 / \textbf{74.4} & \textbf{90.4} / 72.2 \\
+threshold (score $\geq 0.7$) & Exp1     & 72.0 / 80.4 & 3,181 & code  & 53.8 & 59.4 & 65.2 & 39.4 & \textbf{72.9} & \textbf{91.8} & 63.8 \\
+                             &          &             &       & model & \textbf{77.1} & \textbf{62.7} & \textbf{79.5} & \textbf{73.1} & 71.4 & 82.9 & \textbf{74.4} \\
+oracle                       & Exp1     & 82.3 / 82.3 & 3,578 & code  & 72.6 & \textbf{66.6} & 63.2 & 32.7 & \textbf{87.7} & \textbf{96.8} & 69.9 \\
+                             &          &             &       & model & \textbf{79.9} & 65.8 & \textbf{78.1} & \textbf{72.4} & 72.1 & 78.0 & \textbf{74.4} \\
+oraclecnt                    & Exp1     & 82.3 / 94.9 & 4,049 & code  & \textbf{90.5} & 62.9 & 60.7 & 33.6 & \textbf{85.5} & \textbf{92.0} & 70.9 \\
+                             &          &             &       & model & 82.3 & \textbf{63.5} & \textbf{77.0} & \textbf{73.2} & 72.0 & 78.5 & \textbf{74.4} \\
+GT scene (ref.)              & Exp1     & 100 / 100   & 4,318 & code  & \textbf{99.0} & \textbf{97.4} & \textbf{100.0} & 45.8 & \textbf{100.0} & \textbf{100.0} & \textbf{90.4} \\
+                             &          &             &       & model & 76.6 & 60.8 & 76.6 & \textbf{73.1} & 69.2 & 77.2 & 72.2 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \paragraph{Mixing by task, every list.}
