@@ -309,7 +309,10 @@ by $2.1$ on the threshold list; leaving counting to the model there would give a
 \centering
 \caption{Code for counting, relative distance and relative direction where it has an answer, the Exp1 model for all
 other questions (5,130; MRA or accuracy, \%). App.\ order, abs.\ distance, size, room size and route planning are the
-model's in both rows. ``From code'': answers taken from the code.}
+model's in both rows. ``From code'': answers taken from the code. Lists: SAM~3 + VGGT-SLAM boxes with score $\geq 0.7$
+(threshold) or chosen with the ground truth (oracle, oraclecnt), estimated scale. $^\dagger$The code uses the ground-truth
+boxes; the model row is Exp1 with the SAM~3 + VGGT-SLAM list (score $\geq 0.7$) at true scale (run
+\texttt{exp1\_\allowbreak s3q\_\allowbreak rr\_\allowbreak gt\_\allowbreak full}), as no Exp1 run with the ground-truth scene exists.}
 \label{tab:agent-code-mix3}
 \small
 \setlength{\tabcolsep}{3.5pt}
@@ -326,7 +329,7 @@ oracle    & model & 71.3 & 64.8 & 81.9 & 61.8 & \textbf{79.9} & 77.9 & 70.3 & 75
 oraclecnt & model & 71.8 & 65.5 & 80.9 & 62.5 & 82.3 & 78.0 & 71.5 & 75.8 & 73.2 & 50.0 & -- \\
           & mix   & \textbf{75.9} & \textbf{72.3} & 80.9 & 62.5 & \textbf{90.5} & \textbf{90.0} & \textbf{84.2} & 75.8 & 73.2 & 50.0 & 2,094 \\
 \midrule
-GT scene  & model & 70.3 & 63.4 & 80.7 & 60.8 & 76.6 & 77.2 & 69.2 & 76.6 & 73.1 & 47.9 & -- \\
+GT scene$^\dagger$ & model & 70.3 & 63.4 & 80.7 & 60.8 & 76.6 & 77.2 & 69.2 & 76.6 & 73.1 & 47.9 & -- \\
           & mix   & \textbf{79.8} & \textbf{76.3} & 80.7 & 60.8 & \textbf{99.0} & \textbf{100.0} & \textbf{100.0} & 76.6 & 73.1 & 47.9 & 2,243 \\
 \bottomrule
 \end{tabular}
