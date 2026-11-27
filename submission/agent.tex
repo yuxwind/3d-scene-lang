@@ -199,7 +199,8 @@ counting, relative distance and relative direction questions it answers (every n
 the video-only model on all other questions. Mix (all): both together, on all 5,130 questions
 (= Table~\ref{tab:agent-code-else-video}). Video: SFT Qwen3.5-4B fine-tuned on video alone
 (\texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b}, checkpoint 743; 69.4 on all questions). ``Mean'': mean over the tasks the row has
-questions of (--: none). GT kept: share of the ground-truth objects
+questions of (--: none). Last rows: references on all
+questions (Table~\ref{tab:agent-code-else-video}); the GT-scene model is \texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b\_\allowbreak reason190k\_\allowbreak vs} (checkpoint 569). GT kept: share of the ground-truth objects
 with a well-placed box / any box of the label. Score lists: question names + ``room door''.}
 \label{tab:agent-code-answered}
 \resizebox{\linewidth}{!}{%
@@ -236,6 +237,10 @@ oraclecnt & 82.3 / 94.9 & code & 2,094 & -- & -- & 90.5 & 92.0 & 85.5 & -- & -- 
 GT scene (ref.) & 100 / 100 & code & 2,243 & -- & -- & 99.0 & 100.0 & 100.0 & -- & -- & -- & 99.7 \\
  &  & video (rest) & 2,887 & 81.1 & 55.1 & -- & -- & -- & 76.2 & 73.4 & 49.0 & 66.9 \\
  &  & mix (all) & 5,130 & 81.1 & 55.1 & 99.0 & 100.0 & 100.0 & 76.2 & 73.4 & 49.0 & \textbf{79.2} \\
+\midrule
+\multicolumn{3}{l}{Video-only SFT Qwen3.5-4B (no list)} & 5,130 & 81.1 & 55.1 & 73.6 & 77.6 & 69.0 & 76.2 & 73.4 & 49.0 & 69.4 \\
+\multicolumn{3}{l}{SFT Qwen3.5-4B on video + GT scene, with the GT scene} & 5,130 & 79.8 & 92.0 & 99.0 & 98.8 & 90.3 & 97.0 & 62.6 & 39.7 & 82.4 \\
+\multicolumn{3}{l}{Claude Fable 5.2, no code, GT scene as text} & 5,130 & 56.5 & 96.6 & 99.2 & 100.0 & 100.0 & 100.0 & 63.8 & 66.0 & 85.3 \\
 \bottomrule
 \end{tabular}}
 \end{table}
