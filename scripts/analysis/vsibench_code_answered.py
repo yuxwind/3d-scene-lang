@@ -14,6 +14,7 @@ usage: vsibench_code_answered.py --code LIST=oracle_code_<list>.json [...] --mod
            the code; the model's answer for the model and the mix rows); prints App., Route, "mean" (6 tasks) and "mean8".
   --split  instead: per list three rows that partition the benchmark: code on the questions it answers, the model on all
            the others, and the mix (code, else model) on all questions; 8 tasks (n per task), mean over the tasks present.
+           --split-tasks TASK,TASK: the code takes only these tasks (prefix match); everything else goes to the model.
   --mix TASK,TASK  instead: on ALL questions, the code's answer for these tasks where it has one, the model's otherwise
            (prefix match, e.g. object_counting,object_rel_distance,object_rel_direction); prints model alone vs mix:
            full, debiased (from the code rows' "debiased"), 8 tasks, and how many answers came from the code.
@@ -104,7 +105,8 @@ def split(a):
     for spec in a.code:
         L, f = spec.split("=", 1)
         code = {r["index"]: r for r in json.load(open(f))}
-        ok = {i for i, r in code.items() if str(r["prediction"]).strip().lower() != "none"}
+        ok = {i for i, r in code.items() if str(r["prediction"]).strip().lower() != "none"
+              and (not a.split_tasks or r["question_type"].startswith(tuple(a.split_tasks.split(","))))}
         for m in a.model:
             name, d = m.split("=", 1)
             nm, _, lst = name.rpartition("@") if "@" in name else ("model", "", name)
@@ -126,7 +128,7 @@ def split(a):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--code", action="append", required=True)
-    ap.add_argument("--model", action="append", default=[]); ap.add_argument("--mix"); ap.add_argument("--mixrow"); ap.add_argument("--with-never", action="store_true"); ap.add_argument("--split", action="store_true"); a = ap.parse_args()
+    ap.add_argument("--model", action="append", default=[]); ap.add_argument("--mix"); ap.add_argument("--mixrow"); ap.add_argument("--with-never", action="store_true"); ap.add_argument("--split", action="store_true"); ap.add_argument("--split-tasks"); a = ap.parse_args()
     if a.mix:
         return mix(a)
     if a.split:
