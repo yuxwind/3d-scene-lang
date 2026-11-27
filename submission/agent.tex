@@ -246,6 +246,53 @@ GT scene (ref.) & 100 / 100 & 5,130 & code & \textbf{99.0} & \textbf{97.4} & \te
 \end{tabular}}
 \end{table}
 
+\paragraph{Code, else video, on all questions.}
+% Sources (2026-11-27, gandalf): vsibench_code_answered.py --mix <all six code tasks> @12bb5e8 with the video model
+% (runs/sr_vggt_novggt_qwen35_4b/eval_checkpoint-743_full/predictions_final_firstline.jsonl); references: the same file,
+% qwen_eval_scores.py on runs/eval_q35vs_gandalf/mixv2_1_gtfull_full_rvs_question (Section~\ref{sec:sam3}, 77.3), and
+% vsibench_score_answers.py on vggtdet_es56/runs/claude_nocode_s3/gt (Fable 5.2, Section~\ref{sec:agent}; 85.2 there,
+% 85.3 with this scorer). GT rows: data/scenelang_vsibench_slam/rows_s3q_roomdoor_radiator_all5130_full.jsonl.
+Table~\ref{tab:agent-code-else-video} scores every list on all 5,130 questions: the code answers every question it can
+(any of its six tasks), the video-only model answers the rest (questions whose named object has no box, appearance order
+and route planning). Every row is therefore comparable with the video model alone (69.4). No predicted list beats it: the
+code's answers for object size and room size (31--68) and, with score lists, counting replace better video answers. Even
+oraclecnt reaches only 68.7 ($-0.7$), although it is far ahead on counting, relative direction and relative distance;
+keeping the code to those three tasks is what helps (Table~\ref{tab:agent-code-mix3}). With the ground-truth boxes the
+code, else video, reaches 84.0: above the SFT model given the ground-truth scene with the video (77.3) and close to Claude
+reading the same scene without code (85.3), which is better on appearance order and route planning.
+
+\begin{table}[h]
+\centering
+\caption{Code where it answers, the video-only model for every other question, on all 5,130 VSI-Bench questions (MRA or
+accuracy, \%). From code: questions answered by the code (any of counting, absolute and relative distance, relative
+direction, object size, room size). GT kept: share of the ground-truth objects with a well-placed box / any box of the
+label. Video: SFT Qwen3.5-4B fine-tuned on video alone (\texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b}, checkpoint 743). Lower rows: references on
+all questions.}
+\label{tab:agent-code-else-video}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lrrrrrrrrrrrr}
+\toprule
+Code list & GT kept & From code & Full & Deb. & App. & Abs. & Count & Rel.\ dir. & Rel.\ dist. & Size & Room & Route \\
+\midrule
+score $\geq 0.1$ (no filter) & 81.7 / 94.4 & 3,979 & 55.7 & 53.8 & 81.1 & 40.1 & 28.6 & 81.5 & 57.6 & 61.2 & 46.2 & 49.0 \\
+score $\geq 0.3$ & 79.6 / 91.9 & 3,800 & 58.4 & 55.9 & 81.1 & 46.3 & 40.2 & 82.9 & 61.0 & 62.2 & 44.9 & 49.0 \\
+score $\geq 0.5$ & 75.8 / 86.0 & 3,544 & 60.8 & 58.4 & 81.1 & 53.1 & 49.9 & 82.8 & 65.2 & 63.4 & 41.8 & 49.0 \\
+score $\geq 0.7$ & 71.6 / 79.9 & 3,138 & 61.7 & 59.1 & 81.1 & 56.0 & 53.5 & 81.9 & 67.7 & 65.0 & 39.3 & 49.0 \\
+score $\geq 0.9$ & 53.4 / 58.0 & 2,215 & 58.4 & 55.0 & 81.1 & 56.0 & 36.6 & 78.7 & 66.2 & 67.8 & 31.5 & 49.0 \\
+\midrule
+threshold ($\geq 0.7$, + radiator) & 72.0 / 80.4 & 3,181 & 61.9 & 59.3 & 81.1 & 56.4 & 53.8 & 82.2 & 68.0 & 64.9 & 39.5 & 49.0 \\
+oracle & 82.3 / 82.3 & 3,578 & 66.6 & 63.8 & 81.1 & 62.1 & 72.6 & 89.4 & 82.3 & 63.3 & 33.4 & 49.0 \\
+\midrule
+oraclecnt & 82.3 / 94.9 & 4,049 & 68.7 & 66.6 & 81.1 & 62.1 & 90.5 & 89.1 & 83.4 & 60.5 & 33.7 & 49.0 \\
+GT scene & 100 / 100 & 4,318 & 84.0 & 83.0 & 81.1 & 97.4 & 99.0 & 100.0 & 100.0 & 100.0 & 45.8 & 49.0 \\
+\midrule
+\multicolumn{3}{l}{Video-only SFT Qwen3.5-4B (no list)} & 69.4 & 63.7 & 81.1 & 55.1 & 73.6 & 77.6 & 69.0 & 76.2 & 73.4 & 49.0 \\
+\multicolumn{3}{l}{SFT Qwen3.5-4B (mix-v2-1), video + GT scene} & 77.3 & 73.9 & 81.6 & 65.9 & 99.0 & 76.6 & 73.2 & 96.5 & 74.2 & 51.5 \\
+\multicolumn{3}{l}{Claude Fable 5.2, no code, GT scene as text} & 85.3 & 85.1 & 56.5 & 96.6 & 99.2 & 100.0 & 100.0 & 100.0 & 63.8 & 66.0 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
 \paragraph{Mixing by task, every list.}
 Table~\ref{tab:agent-code-mix3} gives the code only the three relation tasks (counting, relative distance, relative
 direction) where it has an answer, and leaves everything else to the model, on all 5,130 questions. Relative direction
