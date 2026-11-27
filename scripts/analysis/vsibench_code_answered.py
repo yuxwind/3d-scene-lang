@@ -7,18 +7,35 @@ usage: vsibench_code_answered.py --code LIST=oracle_code_<list>.json [...] --mod
            ground_truth, prediction; "none" = no answer)
   --model  eval_scenelang runs (predictions_shard*.jsonl, loaded as qwen_eval_scores.py), paired with the code list of
            the same LIST name (e.g. the model run on the same box list). Several --model per LIST are fine (NAME@LIST=DIR).
+           A model may also be one predictions .jsonl file (e.g. eval_checkpoint-743_full/predictions_final_firstline.jsonl).
+  --mixrow TASK,TASK  also print, per model, a third row on the same questions: the code's answer for these tasks, the
+           model's for the others.
   --mix TASK,TASK  instead: on ALL questions, the code's answer for these tasks where it has one, the model's otherwise
            (prefix match, e.g. object_counting,object_rel_distance,object_rel_direction); prints model alone vs mix:
            full, debiased (from the code rows' "debiased"), 8 tasks, and how many answers came from the code.
 Scoring: sr_vggt.eval.score (the VSI-Bench scorer of every reported number), per task and per rel. direction subtype
 (easy / medium / hard); "mean" = mean over the tasks present. Needs the training env ($SR_PYTHON_BIN via remote.py run).
 """
-import argparse, collections, json, os, sys
+import argparse, collections, json, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "..")); sys.path.insert(0, HERE)
 from sr_vggt.eval import score  # noqa: E402
-from qwen_eval_scores import load  # noqa: E402
+from qwen_eval_scores import load as _load_dir  # noqa: E402
+
+
+def load(d):
+    """eval dir (predictions_shard*.jsonl) or a single predictions .jsonl -> {index: row}."""
+    if not d.endswith(".jsonl"):
+        return _load_dir(d)
+    out = {}
+    for line in open(d):
+        x = json.loads(line)
+        m = re.findall(r"-?\d+(?:\.\d+)?", str(x["prediction"]).replace(",", ""))
+        if m and x["question_type"] in ("object_abs_distance", "object_counting", "object_size_estimation", "room_size_estimation"):
+            x["prediction"] = m[-1]
+        out[x["index"]] = x
+    return out
 
 TASKS = [("object_counting", "object_counting_mra", "Count"), ("object_abs_distance", "object_abs_distance_mra", "Abs."),
          ("object_size_estimation", "object_size_estimation_mra", "Size"), ("room_size_estimation", "room_size_estimation_mra", "Room"),
@@ -72,7 +89,7 @@ def mix(a):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--code", action="append", required=True)
-    ap.add_argument("--model", action="append", default=[]); ap.add_argument("--mix"); a = ap.parse_args()
+    ap.add_argument("--model", action="append", default=[]); ap.add_argument("--mix"); ap.add_argument("--mixrow"); a = ap.parse_args()
     if a.mix:
         return mix(a)
     cols = [c for _, _, c in TASKS] + ["dir easy", "dir medium", "dir hard", "mean"]
@@ -87,6 +104,10 @@ def main():
             nm, _, lst = name.rpartition("@") if "@" in name else ("model", "", name)
             if lst != L: continue
             P = load(d); runs.append((nm, [P[i] for i in ids if i in P]))
+            if a.mixrow:
+                C = {r["index"]: r for r in code}; mt = tuple(a.mixrow.split(","))
+                runs.append(("code+" + nm, [dict(P[i], prediction=C[i]["prediction"]) if P[i]["question_type"].startswith(mt) else P[i]
+                                            for i in ids if i in P]))
         for nm, rows in runs:
             t = table(rows)
             print(f"{L:10} {nm:24} {len(rows):5} " + " ".join(f"{t[c][0]:6.1f} n{t[c][1]:<3}" if c in t else f"{'--':>10}" for c in cols))
