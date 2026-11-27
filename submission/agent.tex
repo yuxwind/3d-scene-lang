@@ -314,8 +314,7 @@ model's in both rows. ``From code'': answers taken from the code. Lists: SAM~3 +
 boxes; the model row is Exp1 with the SAM~3 + VGGT-SLAM list (score $\geq 0.7$) at true scale (run
 \texttt{exp1\_\allowbreak s3q\_\allowbreak rr\_\allowbreak gt\_\allowbreak full}), as no Exp1 run with the ground-truth scene exists.}
 \label{tab:agent-code-mix3}
-\small
-\setlength{\tabcolsep}{3.5pt}
+\resizebox{\linewidth}{!}{%
 \begin{tabular}{llrrrrrrrrrrr}
 \toprule
 List & Answered by & Full & Deb. & App. & Abs. & Count & Rel.\ dir. & Rel.\ dist. & Size & Room & Route & From code \\
@@ -332,7 +331,7 @@ oraclecnt & model & 71.8 & 65.5 & 80.9 & 62.5 & 82.3 & 78.0 & 71.5 & 75.8 & 73.2
 GT scene$^\dagger$ & model & 70.3 & 63.4 & 80.7 & 60.8 & 76.6 & 77.2 & 69.2 & 76.6 & 73.1 & 47.9 & -- \\
           & mix   & \textbf{79.8} & \textbf{76.3} & 80.7 & 60.8 & \textbf{99.0} & \textbf{100.0} & \textbf{100.0} & 76.6 & 73.1 & 47.9 & 2,243 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \paragraph{Summary.}
