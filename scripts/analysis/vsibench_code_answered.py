@@ -98,7 +98,7 @@ def mix(a):
             name, d = m.split("=", 1)
             nm, _, lst = name.rpartition("@") if "@" in name else ("model", "", name)
             if lst != L: continue
-            P = load(d); M, used = [], 0
+            P = load(d, code); M, used = [], 0
             for i, r in P.items():
                 c = code.get(i)
                 if c and r["question_type"].startswith(tasks) and str(c["prediction"]).strip().lower() != "none":
