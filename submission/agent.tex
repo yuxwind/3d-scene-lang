@@ -249,7 +249,8 @@ GT scene (ref.) & 100 / 100 & 5,130 & code & \textbf{99.0} & \textbf{97.4} & \te
 \paragraph{Code, else video, on all questions.}
 % Sources (2026-11-27, gandalf): vsibench_code_answered.py --mix <all six code tasks> @12bb5e8 with the video model
 % (runs/sr_vggt_novggt_qwen35_4b/eval_checkpoint-743_full/predictions_final_firstline.jsonl); references: the same file,
-% qwen_eval_scores.py on runs/eval_q35vs_gandalf/mixv2_1_gtfull_full_rvs_question (Section~\ref{sec:sam3}, 77.3), and
+% qwen_eval_scores.py on runs/eval_q35vs_gandalf/gt_firstcam_rvs_question (sr_vggt_novggt_qwen35_4b_reason190k_vs ckpt-569,
+% fine-tuned on video + GT scene, tested with the full GT scene: 82.4 / 80.3), and
 % vsibench_score_answers.py on vggtdet_es56/runs/claude_nocode_s3/gt (Fable 5.2, Section~\ref{sec:agent}; 85.2 there,
 % 85.3 with this scorer). GT rows: data/scenelang_vsibench_slam/rows_s3q_roomdoor_radiator_all5130_full.jsonl.
 Table~\ref{tab:agent-code-else-video} scores every list on all 5,130 questions: the code answers every question it can
@@ -258,8 +259,9 @@ and route planning). Every row is therefore comparable with the video model alon
 code's answers for object size and room size (31--68) and, with score lists, counting replace better video answers. Even
 oraclecnt reaches only 68.7 ($-0.7$), although it is far ahead on counting, relative direction and relative distance;
 keeping the code to those three tasks is what helps (Table~\ref{tab:agent-code-mix3}). With the ground-truth boxes the
-code, else video, reaches 84.0: above the SFT model given the ground-truth scene with the video (77.3) and close to Claude
-reading the same scene without code (85.3), which is better on appearance order and route planning.
+code, else video, reaches 84.0: above the model fine-tuned on video and the ground-truth scene and tested with it (82.4),
+which is weaker on absolute and relative distance and room size, and close to Claude reading the same scene without code
+(85.3), which is better on appearance order and route planning.
 
 \begin{table}[h]
 \centering
@@ -267,7 +269,7 @@ reading the same scene without code (85.3), which is better on appearance order 
 accuracy, \%). From code: questions answered by the code (any of counting, absolute and relative distance, relative
 direction, object size, room size). GT kept: share of the ground-truth objects with a well-placed box / any box of the
 label. Video: SFT Qwen3.5-4B fine-tuned on video alone (\texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b}, checkpoint 743). Lower rows: references on
-all questions.}
+all questions; the GT-scene model is \texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b\_\allowbreak reason190k\_\allowbreak vs} (checkpoint 569), fine-tuned on video + GT scene.}
 \label{tab:agent-code-else-video}
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{lrrrrrrrrrrrr}
@@ -287,7 +289,7 @@ oraclecnt & 82.3 / 94.9 & 4,049 & 68.7 & 66.6 & 81.1 & 62.1 & 90.5 & 89.1 & 83.4
 GT scene & 100 / 100 & 4,318 & 84.0 & 83.0 & 81.1 & 97.4 & 99.0 & 100.0 & 100.0 & 100.0 & 45.8 & 49.0 \\
 \midrule
 \multicolumn{3}{l}{Video-only SFT Qwen3.5-4B (no list)} & 69.4 & 63.7 & 81.1 & 55.1 & 73.6 & 77.6 & 69.0 & 76.2 & 73.4 & 49.0 \\
-\multicolumn{3}{l}{SFT Qwen3.5-4B (mix-v2-1), video + GT scene} & 77.3 & 73.9 & 81.6 & 65.9 & 99.0 & 76.6 & 73.2 & 96.5 & 74.2 & 51.5 \\
+\multicolumn{3}{l}{SFT Qwen3.5-4B on video + GT scene, with the GT scene} & 82.4 & 80.3 & 79.8 & 92.0 & 99.0 & 98.8 & 90.3 & 97.0 & 62.6 & 39.7 \\
 \multicolumn{3}{l}{Claude Fable 5.2, no code, GT scene as text} & 85.3 & 85.1 & 56.5 & 96.6 & 99.2 & 100.0 & 100.0 & 100.0 & 63.8 & 66.0 \\
 \bottomrule
 \end{tabular}}
