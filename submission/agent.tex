@@ -167,81 +167,74 @@ slightly worse than the model ($-0.5$); answering it with the model too would gi
 % object_rel_direction @f3d825e, on data/scenelang_vsibench_slam/oracle_code_{est_thr,oracle,oraclecnt}.json,
 % data/scenelang_vsibench_gt_firstcam/oracle_code_gt.json and runs/eval_q35vs_gandalf/exp1_s3q_rr_{full,oracle_full,
 % oraclecnt_full,gt_full}_rvs_question; scored with sr_vggt.eval.score.
-\paragraph{On the questions the code answers.}
-% Sources (2026-11-27, gandalf): scripts/analysis/vsibench_code_answered.py --mixrow object_counting,object_rel_distance,
-% object_rel_direction @5bccc72; code: data/scenelang_vsibench_slam/oracle_code_{thr0.1,thr0.3,thr0.5,thr0.7,thr0.9,est_thr,
-% oracle,oraclecnt}.json (score lists from scripts/analysis/vsibench_thr_code.sh @86f30db), scenelang_vsibench_gt_firstcam/
-% oracle_code_gt.json; video model: runs/sr_vggt_novggt_qwen35_4b/eval_checkpoint-743_full/predictions_final_firstline.jsonl;
-% GT kept: vggt-slam-sam3 exps/vsibench_objects/keep_sweep.sh @4905c0c (s3_oracle_rows.py NOROWS=1 MINSCORE=<t>).
-Table~\ref{tab:agent-code-answered} compares, on the questions the code answers (every named object has a box), the code,
-the model fine-tuned on video alone, and their mix (code for the three relation tasks, video model for the rest). The
-video model sees no list, so it isolates what the boxes add. Lists: the SAM~3 + VGGT-SLAM boxes at five score thresholds
-(Section~\ref{sec:sam3}, Q6), the threshold list of this section, oracle, oraclecnt and the ground truth. ``GT kept'' is
-the share of the 3,194 ground-truth objects (287 scenes) the list covers, matched as for the oracle lists: one-to-one per
-label, with the position check (well placed) and without it (any box of the label).
+\paragraph{Splitting the benchmark between code and video.}
+% Sources (2026-11-27, gandalf): scripts/analysis/vsibench_code_answered.py --split @ba08521; code:
+% data/scenelang_vsibench_slam/oracle_code_{thr0.1,thr0.3,thr0.5,thr0.7,thr0.9,est_thr,oracle,oraclecnt}.json (score lists
+% from scripts/analysis/vsibench_thr_code.sh @86f30db), scenelang_vsibench_gt_firstcam/oracle_code_gt.json; video model:
+% runs/sr_vggt_novggt_qwen35_4b/eval_checkpoint-743_full/predictions_final_firstline.jsonl; GT kept: vggt-slam-sam3
+% exps/vsibench_objects/keep_sweep.sh @4905c0c (s3_oracle_rows.py NOROWS=1 MINSCORE=<t>).
+Table~\ref{tab:agent-code-answered} splits the 5,130 questions by list: the code answers the questions whose named
+objects all have a box, the model fine-tuned on video alone answers the others, and the mix is the two together. The
+lists are the SAM~3 + VGGT-SLAM boxes at five score thresholds (Section~\ref{sec:sam3}, Q6), the threshold list of this
+section, oracle, oraclecnt and the ground truth. ``GT kept'' is the share of the 3,194 ground-truth objects (287 scenes)
+the list covers, matched as for the oracle lists: one-to-one per label, with the position check (well placed) and
+without it (any box of the label).
 
-The appearance order and route planning columns are added with every such question (812): the code scores 0 there, the
-video model and the mix answer them from the video (81.1, 49.0); ``Mean (8)'' averages all eight tasks, ``Mean (6)'' the
-six the code can answer. On the six tasks the video model is ahead of the code with every predicted list (71.4--75.5
-against 52.6--70.9), but the mix beats both with oracle (77.7) and oraclecnt (79.0), and with the ground truth (83.9
-against 70.8). Over all eight tasks the mix gains $+4.0$ (oracle), $+5.7$ (oraclecnt) and $+9.8$ (ground truth) over the
-video model; with the ground truth this is the whole benchmark (79.2 against the video model's 69.4). The code wins
-relative direction with every list (83.4--96.8 against 78.7--89.6). Relative distance and counting need a clean list: the
-code beats the video model on relative distance only with oracle, oraclecnt and the ground truth (85.5--100 against
-69.0--71.6), and on counting only with oraclecnt and the ground truth (90.5, 99.0 against 73.6). With score lists the code
-counts every box and measures distance to the nearest box of a label, so extra boxes hurt it: lowering the threshold
-from 0.7 to 0.1 covers more ground-truth objects (71.6\% to 81.7\% well placed, close to oracle's 82.3\%) and lets the
-code answer more questions (3,138 to 3,979), but counting falls from 53.5 to 28.6 and relative distance from 72.5 to
-57.8. Relative direction uses the best-scoring box of each label and loses less (91.6 to 83.4). Coverage alone is
-therefore not enough: oracle reaches the same coverage without the extra boxes. With score lists the mix (62.6--71.4 on six tasks,
-63.2--69.8 on eight) is below the video model, mostly because of counting and partly relative distance; a mix that gives the code only relative direction would gain
-with every list.
+Lowering the score threshold lets the code answer more questions (2,215 at 0.9, 3,979 with no threshold) and covers more
+ground-truth objects (53.4\% to 81.7\% well placed, close to oracle's 82.3\%), but the extra boxes hurt the code: its
+counting falls from 53.5 (0.7) to 28.6 and its relative distance from 72.5 to 57.8, since it counts every box and takes
+the nearest box of a label. Relative direction, which uses the best-scoring box of each label, stays at 83.4--95.2. The
+oracle lists reach the same coverage without the extra boxes, and the code's mean on its questions rises to 69.9--70.9.
+The video rows show the questions the code leaves: with oracle and oraclecnt they are mostly appearance order and route
+planning, plus the questions about objects SAM~3 missed, on which the video model is weaker (e.g.\ absolute distance
+46.8--53.1 against 55.1 on all questions). The mix is below the video model alone (69.4) with every predicted list,
+because the code's object size and room size, and with score lists its counting, replace better video answers; only the
+ground-truth boxes lift it (84.0). Table~\ref{tab:agent-code-else-video} adds the debiased scores and references.
 
 \begin{table}[h]
 \centering
-\caption{Code solver, the video-only model and their mix on the questions the code answers plus every appearance order
-and route planning question, per list (MRA or accuracy, \%). Video: SFT Qwen3.5-4B fine-tuned on video alone
-(\texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b}, checkpoint 743; 69.4 / 63.7 on all of VSI-Bench); it sees no list, so its answers are the same
-for every list. Mix: the code's answer for counting, relative distance and relative direction, the video model's for
-the other tasks. The code never answers appearance order and route planning (0); the video model and the mix answer
-them from the video. GT kept: share of the ground-truth objects with a well-placed box / any box of the label. Score
-lists: question names + ``room door''. Questions: the code's answered questions + the 812 appearance order and route
-planning questions. Bold: best of the three.}
+\caption{The benchmark split by the code, per list (MRA or accuracy, \%). Code: the code solver on the questions it
+answers (every named object has a box; never appearance order or route planning). Video (rest): the video-only model on
+all other questions. Mix (all): both together, i.e.\ all 5,130 questions with the code's answer where it has one and the
+video model's otherwise (= Table~\ref{tab:agent-code-else-video}). Video: SFT Qwen3.5-4B fine-tuned on video alone
+(\texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b}, checkpoint 743; 69.4 on all questions). ``Mean'': mean over the tasks the row has
+questions of (--: none); the video rows hold only 1--7 room-size questions. GT kept: share of the ground-truth objects
+with a well-placed box / any box of the label. Score lists: question names + ``room door''.}
 \label{tab:agent-code-answered}
 \resizebox{\linewidth}{!}{%
-\begin{tabular}{lrrlrrrrrrrrrr}
+\begin{tabular}{lrlrrrrrrrrrr}
 \toprule
-List & GT kept & Questions & & Count & Abs. & Size & Room & Rel.\ dist. & Rel.\ dir. & Mean (6) & App. & Route & Mean (8) \\
+List & GT kept & Answered by & Questions & App. & Abs. & Count & Rel.\ dir. & Rel.\ dist. & Size & Room & Route & Mean \\
 \midrule
-score $\geq 0.1$ (no filter) & 81.7 / 94.4 & 4,791 & code & 28.6 & 38.4 & 61.5 & 46.2 & 57.8 & \textbf{83.4} & 52.6 & 0.0 & 0.0 & 39.5 \\
- & &  & video & \textbf{73.6} & \textbf{55.3} & \textbf{77.4} & \textbf{73.4} & \textbf{70.1} & 78.7 & \textbf{71.4} & \textbf{81.1} & \textbf{49.0} & \textbf{69.8} \\
- & &  & mix & 28.6 & \textbf{55.3} & \textbf{77.4} & \textbf{73.4} & 57.8 & \textbf{83.4} & 62.6 & \textbf{81.1} & \textbf{49.0} & 63.2 \\
-score $\geq 0.3$ & 79.6 / 91.9 & 4,612 & code & 40.2 & 45.1 & 62.6 & 44.8 & 62.3 & \textbf{86.5} & 56.9 & 0.0 & 0.0 & 42.7 \\
- & &  & video & \textbf{73.6} & \textbf{55.7} & \textbf{77.8} & \textbf{73.4} & \textbf{71.2} & 79.5 & \textbf{71.9} & \textbf{81.1} & \textbf{49.0} & \textbf{70.2} \\
- & &  & mix & 40.2 & \textbf{55.7} & \textbf{77.8} & \textbf{73.4} & 62.3 & \textbf{86.5} & 66.0 & \textbf{81.1} & \textbf{49.0} & 65.7 \\
-score $\geq 0.5$ & 75.8 / 86.0 & 4,356 & code & 49.9 & 53.5 & 63.8 & 41.7 & 68.2 & \textbf{88.0} & 60.9 & 0.0 & 0.0 & 45.6 \\
- & &  & video & \textbf{73.6} & \textbf{56.2} & \textbf{78.5} & \textbf{73.4} & \textbf{72.9} & 80.3 & \textbf{72.5} & \textbf{81.1} & \textbf{49.0} & \textbf{70.6} \\
- & &  & mix & 49.9 & \textbf{56.2} & \textbf{78.5} & \textbf{73.4} & 68.2 & \textbf{88.0} & 69.0 & \textbf{81.1} & \textbf{49.0} & 68.0 \\
-score $\geq 0.7$ & 71.6 / 79.9 & 3,950 & code & 53.5 & \textbf{58.9} & 65.5 & 39.2 & 72.5 & \textbf{91.6} & 63.5 & 0.0 & 0.0 & 47.6 \\
- & &  & video & \textbf{73.6} & 57.4 & \textbf{79.5} & \textbf{73.4} & \textbf{74.3} & 83.4 & \textbf{73.6} & \textbf{81.1} & \textbf{49.0} & \textbf{71.4} \\
- & &  & mix & 53.5 & 57.4 & \textbf{79.5} & \textbf{73.4} & 72.5 & \textbf{91.6} & 71.3 & \textbf{81.1} & \textbf{49.0} & 69.7 \\
-score $\geq 0.9$ & 53.4 / 58.0 & 3,027 & code & 36.6 & \textbf{63.1} & 68.0 & 30.7 & 67.7 & \textbf{95.2} & 60.2 & 0.0 & 0.0 & 45.2 \\
- & &  & video & \textbf{73.6} & 60.2 & \textbf{82.4} & \textbf{73.6} & \textbf{73.7} & 89.6 & \textbf{75.5} & \textbf{81.1} & \textbf{49.0} & \textbf{72.9} \\
- & &  & mix & 36.6 & 60.2 & \textbf{82.4} & \textbf{73.6} & 67.7 & \textbf{95.2} & 69.3 & \textbf{81.1} & \textbf{49.0} & 68.2 \\
+score $\geq 0.1$ (no filter) & 81.7 / 94.4 & code & 3,979 & -- & 38.4 & 28.6 & 83.4 & 57.8 & 61.5 & 46.2 & -- & 52.6 \\
+ &  & video (rest) & 1,151 & 81.1 & 53.6 & -- & 69.9 & 54.9 & 56.7 & 70.0 & 49.0 & 62.2 \\
+ &  & mix (all) & 5,130 & 81.1 & 40.1 & 28.6 & 81.5 & 57.6 & 61.2 & 46.2 & 49.0 & \textbf{55.7} \\
+score $\geq 0.3$ & 79.6 / 91.9 & code & 3,800 & -- & 45.1 & 40.2 & 86.5 & 62.3 & 62.6 & 44.8 & -- & 56.9 \\
+ &  & video (rest) & 1,330 & 81.1 & 51.8 & -- & 70.4 & 50.0 & 57.9 & 70.0 & 49.0 & 61.5 \\
+ &  & mix (all) & 5,130 & 81.1 & 46.3 & 40.2 & 82.9 & 61.0 & 62.2 & 44.9 & 49.0 & \textbf{58.4} \\
+score $\geq 0.5$ & 75.8 / 86.0 & code & 3,544 & -- & 53.5 & 49.9 & 88.0 & 68.2 & 63.8 & 41.7 & -- & 60.9 \\
+ &  & video (rest) & 1,586 & 81.1 & 51.9 & -- & 71.2 & 52.9 & 60.9 & 70.0 & 49.0 & 62.4 \\
+ &  & mix (all) & 5,130 & 81.1 & 53.1 & 49.9 & 82.8 & 65.2 & 63.4 & 41.8 & 49.0 & \textbf{60.8} \\
+score $\geq 0.7$ & 71.6 / 79.9 & code & 3,138 & -- & 58.9 & 53.5 & 91.6 & 72.5 & 65.5 & 39.2 & -- & 63.5 \\
+ &  & video (rest) & 1,992 & 81.1 & 51.3 & -- & 71.1 & 56.5 & 63.4 & 70.0 & 49.0 & 63.2 \\
+ &  & mix (all) & 5,130 & 81.1 & 56.0 & 53.5 & 81.9 & 67.7 & 65.0 & 39.3 & 49.0 & \textbf{61.7} \\
+score $\geq 0.9$ & 53.4 / 58.0 & code & 2,215 & -- & 63.1 & 36.6 & 95.2 & 67.7 & 68.0 & 30.7 & -- & 60.2 \\
+ &  & video (rest) & 2,915 & 81.1 & 52.5 & -- & 74.5 & 64.9 & 67.4 & 64.3 & 49.0 & 64.8 \\
+ &  & mix (all) & 5,130 & 81.1 & 56.0 & 36.6 & 78.7 & 66.2 & 67.8 & 31.5 & 49.0 & \textbf{58.4} \\
 \midrule
-threshold ($\geq 0.7$, + radiator) & 72.0 / 80.4 & 3,993 & code & 53.8 & \textbf{59.4} & 65.2 & 39.4 & 72.9 & \textbf{91.8} & 63.8 & 0.0 & 0.0 & 47.8 \\
- & &  & video & \textbf{73.6} & 57.2 & \textbf{79.2} & \textbf{73.4} & \textbf{74.3} & 83.2 & \textbf{73.5} & \textbf{81.1} & \textbf{49.0} & \textbf{71.4} \\
- & &  & mix & 53.8 & 57.2 & \textbf{79.2} & \textbf{73.4} & 72.9 & \textbf{91.8} & 71.4 & \textbf{81.1} & \textbf{49.0} & 69.8 \\
+threshold ($\geq 0.7$, + radiator) & 72.0 / 80.4 & code & 3,181 & -- & 59.4 & 53.8 & 91.8 & 72.9 & 65.2 & 39.4 & -- & 63.8 \\
+ &  & video (rest) & 1,949 & 81.1 & 51.4 & -- & 70.9 & 55.5 & 63.6 & 70.0 & 49.0 & 63.1 \\
+ &  & mix (all) & 5,130 & 81.1 & 56.4 & 53.8 & 82.2 & 68.0 & 64.9 & 39.5 & 49.0 & \textbf{61.9} \\
 \midrule
-oracle & 82.3 / 82.3 & 4,390 & code & 72.6 & \textbf{66.6} & 63.2 & 32.7 & \textbf{87.7} & \textbf{96.8} & 69.9 & 0.0 & 0.0 & 52.5 \\
- & &  & video & \textbf{73.6} & 57.5 & \textbf{78.1} & \textbf{73.2} & 71.6 & 79.5 & 72.3 & \textbf{81.1} & \textbf{49.0} & 70.5 \\
- & &  & mix & 72.6 & 57.5 & \textbf{78.1} & \textbf{73.2} & \textbf{87.7} & \textbf{96.8} & \textbf{77.7} & \textbf{81.1} & \textbf{49.0} & \textbf{74.5} \\
-oraclecnt & 82.3 / 94.9 & 4,861 & code & \textbf{90.5} & \textbf{62.9} & 60.7 & 33.6 & \textbf{85.5} & \textbf{92.0} & 70.9 & 0.0 & 0.0 & 53.1 \\
- & &  & video & 73.6 & 55.2 & \textbf{77.2} & \textbf{73.4} & 70.2 & 79.0 & 71.4 & \textbf{81.1} & \textbf{49.0} & 69.8 \\
- & &  & mix & \textbf{90.5} & 55.2 & \textbf{77.2} & \textbf{73.4} & \textbf{85.5} & \textbf{92.0} & \textbf{79.0} & \textbf{81.1} & \textbf{49.0} & \textbf{75.5} \\
-GT scene (ref.) & 100 / 100 & 5,130 & code & \textbf{99.0} & \textbf{97.4} & \textbf{100.0} & 45.8 & \textbf{100.0} & \textbf{100.0} & \textbf{90.4} & 0.0 & 0.0 & 67.8 \\
- & &  & video & 73.6 & 55.1 & 76.2 & \textbf{73.4} & 69.0 & 77.6 & 70.8 & \textbf{81.1} & \textbf{49.0} & 69.4 \\
- & &  & mix & \textbf{99.0} & 55.1 & 76.2 & \textbf{73.4} & \textbf{100.0} & \textbf{100.0} & 83.9 & \textbf{81.1} & \textbf{49.0} & \textbf{79.2} \\
+oracle & 82.3 / 82.3 & code & 3,578 & -- & 66.6 & 72.6 & 96.8 & 87.7 & 63.2 & 32.7 & -- & 69.9 \\
+ &  & video (rest) & 1,552 & 81.1 & 46.8 & -- & 72.6 & 57.1 & 64.1 & 82.5 & 49.0 & 64.8 \\
+ &  & mix (all) & 5,130 & 81.1 & 62.1 & 72.6 & 89.4 & 82.3 & 63.3 & 33.4 & 49.0 & \textbf{66.6} \\
+oraclecnt & 82.3 / 94.9 & code & 4,049 & -- & 62.9 & 90.5 & 92.0 & 85.5 & 60.7 & 33.6 & -- & 70.9 \\
+ &  & video (rest) & 1,081 & 81.1 & 53.1 & -- & 64.8 & 52.2 & 56.0 & 70.0 & 49.0 & 60.9 \\
+ &  & mix (all) & 5,130 & 81.1 & 62.1 & 90.5 & 89.1 & 83.4 & 60.5 & 33.7 & 49.0 & \textbf{68.7} \\
+GT scene (ref.) & 100 / 100 & code & 4,318 & -- & 97.4 & 99.0 & 100.0 & 100.0 & 100.0 & 45.8 & -- & 90.4 \\
+ &  & video (rest) & 812 & 81.1 & -- & -- & -- & -- & -- & -- & 49.0 & 65.0 \\
+ &  & mix (all) & 5,130 & 81.1 & 97.4 & 99.0 & 100.0 & 100.0 & 100.0 & 45.8 & 49.0 & \textbf{84.0} \\
 \bottomrule
 \end{tabular}}
 \end{table}
