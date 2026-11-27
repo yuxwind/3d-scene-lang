@@ -287,26 +287,26 @@ label. The row ``oraclecnt, else Claude'' gives the other questions to Claude Op
 all questions; the GT-scene model is \texttt{novggt\_\allowbreak qwen35\_\allowbreak 4b\_\allowbreak reason190k\_\allowbreak vs} (checkpoint 569), fine-tuned on video + GT scene.}
 \label{tab:agent-code-else-video}
 \resizebox{\linewidth}{!}{%
-\begin{tabular}{lrrrrrrrrrrrr}
+\begin{tabular}{rlrrrrrrrrrrrr}
 \toprule
-Code list & GT kept & From code & Full & Deb. & App. & Abs. & Count & Rel.\ dir. & Rel.\ dist. & Size & Room & Route \\
+\# & Code list & GT kept & From code & Full & Deb. & App. & Abs. & Count & Rel.\ dir. & Rel.\ dist. & Size & Room & Route \\
 \midrule
-score $\geq 0.1$ (no filter) & 81.7 / 94.4 & 2,055 & 62.8 & 59.6 & 81.1 & 55.1 & 28.6 & 81.5 & 57.6 & 76.2 & 73.4 & 49.0 \\
-score $\geq 0.3$ & 79.6 / 91.9 & 1,948 & 64.8 & 61.0 & 81.1 & 55.1 & 40.2 & 82.9 & 61.0 & 76.2 & 73.4 & 49.0 \\
-score $\geq 0.5$ & 75.8 / 86.0 & 1,808 & 66.6 & 63.1 & 81.1 & 55.1 & 49.9 & 82.8 & 65.2 & 76.2 & 73.4 & 49.0 \\
-score $\geq 0.7$ & 71.6 / 79.9 & 1,578 & 67.2 & 63.5 & 81.1 & 55.1 & 53.5 & 81.9 & 67.7 & 76.2 & 73.4 & 49.0 \\
-score $\geq 0.9$ & 53.4 / 58.0 & 1,096 & 64.5 & 60.2 & 81.1 & 55.1 & 36.6 & 78.7 & 66.2 & 76.2 & 73.4 & 49.0 \\
+1 & score $\geq 0.1$ (no filter) & 81.7 / 94.4 & 2,055 & 62.8 & 59.6 & 81.1 & 55.1 & 28.6 & 81.5 & 57.6 & 76.2 & 73.4 & 49.0 \\
+2 & score $\geq 0.3$ & 79.6 / 91.9 & 1,948 & 64.8 & 61.0 & 81.1 & 55.1 & 40.2 & 82.9 & 61.0 & 76.2 & 73.4 & 49.0 \\
+3 & score $\geq 0.5$ & 75.8 / 86.0 & 1,808 & 66.6 & 63.1 & 81.1 & 55.1 & 49.9 & 82.8 & 65.2 & 76.2 & 73.4 & 49.0 \\
+4 & score $\geq 0.7$ & 71.6 / 79.9 & 1,578 & 67.2 & 63.5 & 81.1 & 55.1 & 53.5 & 81.9 & 67.7 & 76.2 & 73.4 & 49.0 \\
+5 & score $\geq 0.9$ & 53.4 / 58.0 & 1,096 & 64.5 & 60.2 & 81.1 & 55.1 & 36.6 & 78.7 & 66.2 & 76.2 & 73.4 & 49.0 \\
 \midrule
-threshold ($\geq 0.7$, + radiator) & 72.0 / 80.4 & 1,599 & 67.3 & 63.6 & 81.1 & 55.1 & 53.8 & 82.2 & 68.0 & 76.2 & 73.4 & 49.0 \\
+6 & threshold ($\geq 0.7$, + radiator) & 72.0 / 80.4 & 1,599 & 67.3 & 63.6 & 81.1 & 55.1 & 53.8 & 82.2 & 68.0 & 76.2 & 73.4 & 49.0 \\
 \midrule
-oracle & 82.3 / 82.3 & 1,828 & 72.4 & 68.1 & 81.1 & 55.1 & 72.6 & 89.4 & 82.3 & 76.2 & 73.4 & 49.0 \\
-oraclecnt & 82.3 / 94.9 & 2,094 & 74.7 & 71.1 & 81.1 & 55.1 & 90.5 & 89.1 & 83.4 & 76.2 & 73.4 & 49.0 \\
-oraclecnt, else Claude Opus 5.5 (no code) & 82.3 / 94.9 & 2,094 & 67.3 & 64.3 & 40.1 & 60.9 & 90.5 & 88.7 & 82.3 & 69.6 & 51.5 & 54.6 \\
-GT scene & 100 / 100 & 2,243 & 79.2 & 75.8 & 81.1 & 55.1 & 99.0 & 100.0 & 100.0 & 76.2 & 73.4 & 49.0 \\
+7 & oracle & 82.3 / 82.3 & 1,828 & 72.4 & 68.1 & 81.1 & 55.1 & 72.6 & 89.4 & 82.3 & 76.2 & 73.4 & 49.0 \\
+8 & oraclecnt & 82.3 / 94.9 & 2,094 & 74.7 & 71.1 & 81.1 & 55.1 & 90.5 & 89.1 & 83.4 & 76.2 & 73.4 & 49.0 \\
+9 & oraclecnt, else Claude Opus 5.5 (no code) & 82.3 / 94.9 & 2,094 & 67.3 & 64.3 & 40.1 & 60.9 & 90.5 & 88.7 & 82.3 & 69.6 & 51.5 & 54.6 \\
+10 & GT scene & 100 / 100 & 2,243 & 79.2 & 75.8 & 81.1 & 55.1 & 99.0 & 100.0 & 100.0 & 76.2 & 73.4 & 49.0 \\
 \midrule
-\multicolumn{3}{l}{Video-only SFT Qwen3.5-4B (no list)} & 69.4 & 63.7 & 81.1 & 55.1 & 73.6 & 77.6 & 69.0 & 76.2 & 73.4 & 49.0 \\
-\multicolumn{3}{l}{SFT Qwen3.5-4B on video + GT scene, with the GT scene} & 82.4 & 80.3 & 79.8 & 92.0 & 99.0 & 98.8 & 90.3 & 97.0 & 62.6 & 39.7 \\
-\multicolumn{3}{l}{Claude Fable 5.2, no code, GT scene as text} & 85.3 & 85.1 & 56.5 & 96.6 & 99.2 & 100.0 & 100.0 & 100.0 & 63.8 & 66.0 \\
+11 & \multicolumn{3}{l}{Video-only SFT Qwen3.5-4B (no list)} & 69.4 & 63.7 & 81.1 & 55.1 & 73.6 & 77.6 & 69.0 & 76.2 & 73.4 & 49.0 \\
+12 & \multicolumn{3}{l}{SFT Qwen3.5-4B on video + GT scene, with the GT scene} & 82.4 & 80.3 & 79.8 & 92.0 & 99.0 & 98.8 & 90.3 & 97.0 & 62.6 & 39.7 \\
+13 & \multicolumn{3}{l}{Claude Fable 5.2, no code, GT scene as text} & 85.3 & 85.1 & 56.5 & 96.6 & 99.2 & 100.0 & 100.0 & 100.0 & 63.8 & 66.0 \\
 \bottomrule
 \end{tabular}}
 \end{table}
